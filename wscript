@@ -1,110 +1,61 @@
-# WARNING: This wscript does not follow good practices and should not be copied
-# or reproduced in your own projects.
-#
-# Multi Timer v3.4
-# http://matthewtole.com/pebble/multi-timer/
-#
-# ----------------------
-#
-# The MIT License (MIT)
-#
-# Copyright © 2013 - 2015 Matthew Tole
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-#
-# --------------------
-#
-# wscript
-#
-
-import json
 import datetime
+import json
 import os
-from sh import karma
-from sh import uglifyjs
-from sh import jshint
-from sh import make
 
 top = '.'
 out = 'build'
 
+
 def options(ctx):
   ctx.load('pebble_sdk')
+
 
 def configure(ctx):
   ctx.load('pebble_sdk')
 
+
 def distclean(ctx):
   ctx.load('pebble_sdk')
-  try:
-    os.remove('./src/js/pebble-js-app.js')
-  except OSError as e:
-    pass
-  try:
-    os.remove('./src/js/src/generated/appinfo.js')
-  except OSError as e:
-    pass
-  try:
-    os.remove('./src/generated/appinfo.h')
-  except OSError as e:
-    pass
+  for path in [
+      './src/js/pebble-js-app.js',
+      './src/js/src/generated/appinfo.js',
+      './src/generated/appinfo.h',
+  ]:
+    try:
+      os.remove(path)
+    except OSError:
+      pass
+
 
 def build(ctx):
   ctx.load('pebble_sdk')
 
-  js_libs = [
-    '../src/js/src/libs/pebble-ga.js'
-  ]
-
   js_sources = [
-    '../src/js/src/generated/appinfo.js',
-    '../src/js/src/main.js',
+    'src/js/src/generated/appinfo.js',
+    'src/js/src/libs/pebble-ga.js',
+    'src/js/src/main.js',
   ]
-  built_js = '../src/js/pebble-js-app.js'
+  built_js = 'src/js/pebble-js-app.js'
+  ctx(rule=concatenate_js, source=js_sources, target=built_js)
 
-  c_sources = ctx.path.ant_glob('src/**/*.c')
+  binaries = []
+  cached_env = ctx.env
 
-  # Generate appinfo.js
-  ctx(rule=generate_appinfo_js, source='../appinfo.json', target='../src/js/src/generated/appinfo.js')
+  for platform in ctx.env.TARGET_PLATFORMS:
+    ctx.env = ctx.all_envs[platform]
+    ctx.set_group(ctx.env.PLATFORM_NAME)
+    app_elf = '{}/pebble-app.elf'.format(ctx.env.BUILD_DIR)
+    ctx.pbl_build(source=ctx.path.ant_glob('src/**/*.c'),
+                  includes=lib_folders(ctx),
+                  target=app_elf,
+                  bin_type='app')
+    binaries.append({'platform': platform, 'app_elf': app_elf})
 
-  # Generate appinfo.h
-  ctx(rule=generate_appinfo_h, source='../appinfo.json', target='../src/generated/appinfo.h')
+  ctx.env = cached_env
+  ctx.set_group('bundle')
+  ctx.pbl_bundle(binaries=binaries, js=built_js, js_entry_file=built_js)
 
-  # Run the C tests.
-  # ctx(rule=make_test);
 
-  # Run jshint on all the JavaScript files
-  ctx(rule=js_jshint, source=js_sources)
-
-  # Run the suite of JS tests.
-  # ctx(rule=js_karma)
-
-  # Combine the source JS files into a single JS file.
-  ctx(rule=concatenate_js, source=' '.join(js_libs + js_sources), target=built_js)
-
-  # Build and bundle the Pebble app.
-  ctx.pbl_program(source=c_sources,
-    includes=lib_folders(ctx),
-    target='pebble-app.elf')
-  ctx.pbl_bundle(elf='pebble-app.elf', js=built_js)
-
-# Return a list of all of the subfolders within the "src/libs/" folder
 def lib_folders(ctx):
   folders = []
   libs = ctx.path.find_node('./src/libs')
@@ -112,8 +63,8 @@ def lib_folders(ctx):
     folders.append(libs.find_node(folder).abspath())
   return folders
 
+
 def generate_appinfo_h(task):
-  ext_out = '.c'
   src = task.inputs[0].abspath()
   target = task.outputs[0].abspath()
   appinfo = json.load(open(src))
@@ -130,6 +81,7 @@ def generate_appinfo_h(task):
     f.write('#define APP_KEY_{0} {1}\n'.format(key.upper(), appinfo['appKeys'][key]))
   f.close()
 
+
 def generate_appinfo_js(task):
   src = task.inputs[0].abspath()
   target = task.outputs[0].abspath()
@@ -144,8 +96,7 @@ def generate_appinfo_js(task):
   f.write(';')
   f.close()
 
-# Function to write the comment header for both the C and JS generated files.
-# Thank goodness that they have the same comment syntax!
+
 def write_comment_header(f, filename, appinfo):
   f.write('/*\n')
   f.write('\n')
@@ -183,18 +134,10 @@ def write_comment_header(f, filename, appinfo):
   f.write('*/\n')
   f.write('\n')
 
+
 def concatenate_js(task):
-  inputs = (input.abspath() for input in task.inputs)
-  uglifyjs(*inputs, o=task.outputs[0].abspath(), b=True, indent_level=2)
-
-def make_test(task):
-  ext_out = '.c'
-  make()
-
-def js_jshint(task):
-  inputs = (input.abspath() for input in task.inputs)
-  jshint(*inputs, config=".jshintrc")
-
-def js_karma(task):
-  ext_out = '.js'
-  karma("start", single_run=True, reporters="dots")
+  with open(task.outputs[0].abspath(), 'w') as output:
+    for input_node in task.inputs:
+      with open(input_node.abspath()) as source:
+        output.write(source.read())
+        output.write('\n')

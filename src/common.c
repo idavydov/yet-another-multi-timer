@@ -47,12 +47,12 @@ graphics_draw_text(ctx, text,
     GTextAlignmentLeft, NULL);
 }
 
-void timer_draw_row(Timer* timer, GContext* ctx) {
+static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_color, GColor fill_color, GCompOp icon_mode) {
   char* time_left = malloc(12);
   timer_time_str(timer->current_time, settings()->timers_hours, time_left, 12);
 
-  graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, text_color);
+  graphics_context_set_fill_color(ctx, fill_color);
 
   graphics_draw_text(ctx, time_left,
     fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
@@ -77,6 +77,8 @@ void timer_draw_row(Timer* timer, GContext* ctx) {
       break;
   }
 
+  graphics_context_set_compositing_mode(ctx, icon_mode);
+
   if (bmp_icon) {
     graphics_draw_bitmap_in_rect(ctx, bmp_icon, GRect(8, 8, 16, 16));
   }
@@ -94,12 +96,22 @@ void timer_draw_row(Timer* timer, GContext* ctx) {
     graphics_draw_bitmap_in_rect(ctx, bmp_direction, GRect(PEBBLE_WIDTH - 8 - 8, 9, 8, 16));
   }
 
+  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+
   if (timer->type == TIMER_TYPE_TIMER) {
     uint8_t width = (144 * timer->current_time) / timer->length;
     graphics_fill_rect(ctx, GRect(0, 31, width, 2), 0, GCornerNone);
   }
 
   free(time_left);
+}
+
+void timer_draw_row(Timer* timer, GContext* ctx) {
+  timer_draw_row_with_colors(timer, ctx, GColorBlack, GColorBlack, GCompOpAssign);
+}
+
+void timer_draw_row_inverted(Timer* timer, GContext* ctx) {
+  timer_draw_row_with_colors(timer, ctx, GColorWhite, GColorWhite, GCompOpAssignInverted);
 }
 
 void menu_draw_option(GContext* ctx, char* option, char* value) {

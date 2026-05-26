@@ -60,7 +60,6 @@ static bool can_edit(void);
 static Window* s_window;
 static Timer* s_timer;
 static Layer* s_layer_header;
-static InverterLayer* s_layer_header_invert;
 static MenuLayer* s_layer_menu;
 
 void win_timer_init(void) {
@@ -89,9 +88,6 @@ static void window_load(Window* window) {
   layer_set_update_proc(s_layer_header, layer_header_update);
   layer_add_to_window(s_layer_header, s_window);
 
-  s_layer_header_invert = inverter_layer_create(layer_get_frame(s_layer_header));
-  inverter_layer_add_to_window(s_layer_header_invert, s_window);
-
   s_layer_menu = menu_layer_create(GRect(0, 36, PEBBLE_WIDTH, PEBBLE_HEIGHT - STATUS_HEIGHT - 36));
   menu_layer_set_callbacks(s_layer_menu, NULL, (MenuLayerCallbacks) {
     .get_num_sections = menu_num_sections,
@@ -105,12 +101,13 @@ static void window_load(Window* window) {
 
 static void window_unload(Window* window) {
   menu_layer_destroy(s_layer_menu);
-  inverter_layer_destroy(s_layer_header_invert);
   layer_destroy(s_layer_header);
 }
 
 static void layer_header_update(Layer* layer, GContext* ctx) {
-  timer_draw_row(s_timer, ctx);
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
+  timer_draw_row_inverted(s_timer, ctx);
 }
 
 static uint16_t menu_num_sections(struct MenuLayer* menu, void* callback_context) {

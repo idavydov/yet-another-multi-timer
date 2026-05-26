@@ -1,0 +1,62 @@
+{
+  "name": "multi-timer",
+  "author": "Matthew Tole",
+  "version": "3.4.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Multi Timer",
+    "uuid": "0db6a55e-b32a-4b03-b037-95637bf306ff",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "chalk",
+      "diorite",
+      "emery",
+      "flint",
+      "gabbro"
+    ],
+    "capabilities": [],
+    "projectType": "native",
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": {},
+    "resources": {
+      "media": [
+        {
+          "menuIcon": true,
+          "type": "png",
+          "name": "MENU_ICON",
+          "file": "images/menu.png"
+        },
+        {
+          "type": "png",
+          "name": "ICONS_16",
+          "file": "images/icons.png"
+        },
+        {
+          "type": "png",
+          "name": "IMAGE_ALARM",
+          "file": "images/alarm.png"
+        },
+        {
+          "type": "raw",
+          "name": "TEXT_ABOUT",
+          "file": "about.txt"
+        },
+        {
+          "characterRegex": "[0-9]",
+          "type": "font",
+          "name": "FONT_AUDI_70_BOLD",
+          "file": "fonts/audi.ttf"
+        }
+      ]
+    }
+  }
+}
