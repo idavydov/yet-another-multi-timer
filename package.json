@@ -52,6 +52,17 @@
         },
         {
           "type": "raw",
+          "name": "ICON_DELETED",
+          "file": "drawing/Pebble_80x80_Deleted.pdc"
+        },
+        {
+          "type": "png",
+          "name": "IMAGE_SHREADER",
+          "file": "images/image_shreader.png",
+          "targetPlatforms": [ "aplite" ]
+        },
+        {
+          "type": "raw",
           "name": "TEXT_ABOUT",
           "file": "about.txt"
         },

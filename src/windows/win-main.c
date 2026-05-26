@@ -42,6 +42,7 @@ src/windows/win-main.c
 #include "win-vibration.h"
 #include "win-duration.h"
 #include "win-vibrate.h"
+#include "win-deleted.h"
 
 #include "../common.h"
 #include "../icons.h"
@@ -98,6 +99,7 @@ void win_main_init(void) {
   win_vibration_init();
   win_duration_init();
   win_vibrate_init();
+  win_deleted_init();
 }
 
 void win_main_show(void) {

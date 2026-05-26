@@ -34,6 +34,7 @@ src/windows/win-timer.c
 #include <bitmap-loader.h>
 #include "win-timer.h"
 #include "win-timer-add.h"
+#include "win-deleted.h"
 #include "../timer.h"
 #include "../common.h"
 #include "../icons.h"
@@ -175,6 +176,7 @@ static void menu_select(struct MenuLayer* menu, MenuIndex* cell_index, void* cal
     case MENU_ROW_DELETE:
       timers_remove(timers_index_of(s_timer->id));
       window_stack_pop(false);
+      win_deleted_show();
       break;
     case MENU_ROW_EDIT:
       win_timer_add_show_edit(s_timer);
