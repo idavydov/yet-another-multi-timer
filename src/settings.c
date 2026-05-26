@@ -40,6 +40,7 @@ src/settings.c
 
 static void migrate_settings_01(OldSettings old);
 static void migrate_settings_02(SettingsTiny tiny);
+static void migrate_settings_03(SettingsPreSort pre_sort);
 
 // Set the default settings for the app.
 Settings _settings = {
@@ -47,7 +48,8 @@ Settings _settings = {
   .timers_vibration = TIMER_VIBE_SHORT,
   .timers_duration = 10 * 60,
   .timers_hours = false,
-  .show_clock = false
+  .show_clock = false,
+  .sort_timers_by_duration = false
 };
 
 void settings_load(void) {
@@ -66,6 +68,14 @@ void settings_load(void) {
       int res = persist_read_data(PERSIST_SETTINGS, &settings_tiny, sizeof(settings_tiny));
       if (res >= 0) {
         migrate_settings_02(settings_tiny);
+        return;
+      }
+    }
+    else if (persist_read_int(PERSIST_SETTINGS_VERSION) == SETTINGS_VERSION_PRE_SORT) {
+      SettingsPreSort settings_pre_sort;
+      int res = persist_read_data(PERSIST_SETTINGS, &settings_pre_sort, sizeof(settings_pre_sort));
+      if (res >= 0) {
+        migrate_settings_03(settings_pre_sort);
         return;
       }
     }
@@ -100,4 +110,12 @@ static void migrate_settings_02(SettingsTiny tiny) {
   _settings.timers_start_auto = tiny.timers_start_auto;
   _settings.timers_duration = tiny.timers_duration;
   _settings.show_clock = tiny.show_clock;
+}
+
+static void migrate_settings_03(SettingsPreSort pre_sort) {
+  _settings.timers_hours = pre_sort.timers_hours;
+  _settings.timers_vibration = pre_sort.timers_vibration;
+  _settings.timers_start_auto = pre_sort.timers_start_auto;
+  _settings.timers_duration = pre_sort.timers_duration;
+  _settings.show_clock = pre_sort.show_clock;
 }

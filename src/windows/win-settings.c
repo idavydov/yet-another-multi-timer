@@ -44,11 +44,12 @@ src/windows/win-settings.c
 #define MENU_NUM_SECTIONS   1
 #define MENU_SECTION_TIMERS 0
 
-#define MENU_SECTION_ROWS_TIMERS  3
+#define MENU_SECTION_ROWS_TIMERS  4
 
 #define MENU_ROW_TIMERS_START    0
 #define MENU_ROW_TIMERS_VIBRATE  1
 #define MENU_ROW_TIMERS_DURATION 2
+#define MENU_ROW_TIMERS_SORT     3
 
 static uint16_t menu_get_num_sections_callback(MenuLayer *me, void *data);
 static uint16_t menu_get_num_rows_callback(MenuLayer *me, uint16_t section_index, void *data);
@@ -131,6 +132,9 @@ static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuI
           timer_time_str(settings()->timers_duration, settings()->timers_hours, value, 16);
           menu_draw_option(ctx, "Duration", value, highlighted);
           break;
+        case MENU_ROW_TIMERS_SORT:
+          menu_draw_option(ctx, "Sort Timers", settings()->sort_timers_by_duration ? "ON": "OFF", highlighted);
+          break;
       }
       break;
   }
@@ -157,6 +161,10 @@ static void menu_select_click_callback(MenuLayer *menu_layer, MenuIndex *cell_in
         break;
         case MENU_ROW_TIMERS_DURATION:
           win_duration_show(settings()->timers_duration, duration_callback);
+        break;
+        case MENU_ROW_TIMERS_SORT:
+          settings()->sort_timers_by_duration = ! settings()->sort_timers_by_duration;
+          menu_layer_reload_data(layer_menu);
         break;
       }
       break;

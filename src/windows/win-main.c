@@ -74,6 +74,8 @@ static void timers_update_handler(void);
 static void timer_highlight_handler(Timer* timer);
 static uint8_t timers_count_for_section(uint16_t section_index);
 static int16_t timers_index_for_section_row(uint16_t section_index, uint16_t row_index);
+static int16_t sorted_timer_index_for_row(uint16_t row_index);
+static uint16_t timer_row_for_index(uint16_t timer_index, uint16_t section_index);
 static bool timer_is_in_section(Timer* timer, uint16_t section_index);
 static bool timer_is_stopwatch(Timer* timer);
 static MenuIndex menu_index_for_timer(Timer* timer);
@@ -281,6 +283,10 @@ static uint8_t timers_count_for_section(uint16_t section_index) {
 }
 
 static int16_t timers_index_for_section_row(uint16_t section_index, uint16_t row_index) {
+  if (section_index == MENU_SECTION_TIMERS && settings()->sort_timers_by_duration) {
+    return sorted_timer_index_for_row(row_index);
+  }
+
   uint8_t row = 0;
   for (uint8_t i = 0; i < timers_count(); i += 1) {
     if (timer_is_in_section(timers_get(i), section_index)) {
@@ -291,6 +297,61 @@ static int16_t timers_index_for_section_row(uint16_t section_index, uint16_t row
     }
   }
   return -1;
+}
+
+static int16_t sorted_timer_index_for_row(uint16_t row_index) {
+  for (uint8_t candidate_index = 0; candidate_index < timers_count(); candidate_index += 1) {
+    Timer* candidate = timers_get(candidate_index);
+    if (! timer_is_in_section(candidate, MENU_SECTION_TIMERS)) {
+      continue;
+    }
+
+    uint16_t rank = 0;
+    for (uint8_t compare_index = 0; compare_index < timers_count(); compare_index += 1) {
+      Timer* compare = timers_get(compare_index);
+      if (! timer_is_in_section(compare, MENU_SECTION_TIMERS)) {
+        continue;
+      }
+      if (compare->length < candidate->length ||
+          (compare->length == candidate->length && compare_index < candidate_index)) {
+        rank += 1;
+      }
+    }
+    if (rank == row_index) {
+      return candidate_index;
+    }
+  }
+  return -1;
+}
+
+static uint16_t timer_row_for_index(uint16_t timer_index, uint16_t section_index) {
+  if (section_index == MENU_SECTION_TIMERS && settings()->sort_timers_by_duration) {
+    Timer* timer = timers_get(timer_index);
+    if (! timer) {
+      return 0;
+    }
+
+    uint16_t row = 0;
+    for (uint8_t i = 0; i < timers_count(); i += 1) {
+      Timer* compare = timers_get(i);
+      if (! timer_is_in_section(compare, MENU_SECTION_TIMERS)) {
+        continue;
+      }
+      if (compare->length < timer->length ||
+          (compare->length == timer->length && i < timer_index)) {
+        row += 1;
+      }
+    }
+    return row;
+  }
+
+  uint16_t row = 0;
+  for (uint8_t i = 0; i < timer_index; i += 1) {
+    if (timer_is_in_section(timers_get(i), section_index)) {
+      row += 1;
+    }
+  }
+  return row;
 }
 
 static bool timer_is_in_section(Timer* timer, uint16_t section_index) {
@@ -317,11 +378,6 @@ static MenuIndex menu_index_for_timer(Timer* timer) {
     return index;
   }
   index.section = timer_is_stopwatch(timer) ? MENU_SECTION_STOPWATCHES : MENU_SECTION_TIMERS;
-  index.row = 0;
-  for (uint8_t i = 0; i < timer_index; i += 1) {
-    if (timer_is_in_section(timers_get(i), index.section)) {
-      index.row += 1;
-    }
-  }
+  index.row = timer_row_for_index(timer_index, index.section);
   return index;
 }
