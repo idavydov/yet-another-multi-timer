@@ -62,10 +62,12 @@ static void menu_select_footer(void);
 static void vibration_callback(TimerVibration vibration);
 static void duration_callback(uint32_t duration);
 static void new_timer_duration_callback(uint32_t duration);
+static void edit_timer_duration_callback(uint32_t duration);
 
 static Window* s_window;
 static MenuLayer* s_menu;
 static Timer* s_timer = NULL;
+static Timer* s_edit_timer = NULL;
 static bool s_mode_edit = false;
 
 void win_timer_add_init(void) {
@@ -81,15 +83,16 @@ void win_timer_add_show_new(void) {
     free(s_timer);
     s_timer = NULL;
   }
+  s_edit_timer = NULL;
   s_timer = timer_create_timer();
   s_mode_edit = false;
   win_duration_show(s_timer->length, new_timer_duration_callback);
 }
 
 void win_timer_add_show_edit(Timer* tmr) {
-  window_stack_push(s_window, true);
+  s_edit_timer = tmr;
   s_mode_edit = true;
-  s_timer = timer_clone(tmr);
+  win_duration_show(tmr->length, edit_timer_duration_callback);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - //
@@ -250,4 +253,15 @@ static void duration_callback(uint32_t duration) {
 static void new_timer_duration_callback(uint32_t duration) {
   s_timer->length = duration;
   menu_select_footer();
+}
+
+static void edit_timer_duration_callback(uint32_t duration) {
+  if (! s_edit_timer) {
+    return;
+  }
+  s_edit_timer->length = duration;
+  timer_reset(s_edit_timer);
+  timers_mark_updated();
+  timers_highlight(s_edit_timer);
+  s_edit_timer = NULL;
 }
