@@ -36,9 +36,14 @@ src/common.c
 #include "icons.h"
 #include "settings.h"
 
-void menu_draw_row_icon_text(GContext* ctx, char* text, GBitmap* icon, bool highlighted) {
+GBitmap* icon_get_bitmap(GRect icon_rect, bool highlighted) {
+  return bitmaps_get_sub_bitmap(highlighted ? RESOURCE_ID_ICONS_16_SELECTED : RESOURCE_ID_ICONS_16, icon_rect);
+}
+
+void menu_draw_row_icon_text(GContext* ctx, char* text, GRect icon_rect, bool highlighted) {
   graphics_context_set_text_color(ctx, highlighted ? GColorWhite : GColorBlack);
   graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+  GBitmap* icon = icon_get_bitmap(icon_rect, highlighted);
   if (icon) {
     graphics_draw_bitmap_in_rect(ctx, icon, GRect(8, 8, 16, 16));
   }
@@ -49,7 +54,7 @@ void menu_draw_row_icon_text(GContext* ctx, char* text, GBitmap* icon, bool high
     GTextAlignmentLeft, NULL);
 }
 
-static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_color, GColor fill_color, GCompOp icon_mode) {
+static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_color, GColor fill_color, bool highlighted) {
   char* time_left = malloc(12);
   timer_time_str(timer->current_time, settings()->timers_hours, time_left, 12);
 
@@ -66,20 +71,20 @@ static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_
 
   switch (timer->status) {
     case TIMER_STATUS_STOPPED:
-      bmp_icon = bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_STOP);
+      bmp_icon = icon_get_bitmap(ICON_RECT_STOP, highlighted);
       break;
     case TIMER_STATUS_RUNNING:
-      bmp_icon = bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PLAY);
+      bmp_icon = icon_get_bitmap(ICON_RECT_PLAY, highlighted);
       break;
     case TIMER_STATUS_PAUSED:
-      bmp_icon = bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PAUSE);
+      bmp_icon = icon_get_bitmap(ICON_RECT_PAUSE, highlighted);
       break;
     case TIMER_STATUS_DONE:
-      bmp_icon = bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_DONE);
+      bmp_icon = icon_get_bitmap(ICON_RECT_DONE, highlighted);
       break;
   }
 
-  graphics_context_set_compositing_mode(ctx, icon_mode);
+  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
 
   if (bmp_icon) {
     graphics_draw_bitmap_in_rect(ctx, bmp_icon, GRect(8, 8, 16, 16));
@@ -87,10 +92,10 @@ static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_
 
   switch (timer->type) {
     case TIMER_TYPE_TIMER:
-      bmp_direction = bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_TIMER);
+      bmp_direction = icon_get_bitmap(ICON_RECT_TIMER, highlighted);
       break;
     case TIMER_TYPE_STOPWATCH:
-      bmp_direction = bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_STOPWATCH);
+      bmp_direction = icon_get_bitmap(ICON_RECT_STOPWATCH, highlighted);
       break;
   }
 
@@ -112,11 +117,11 @@ void timer_draw_row(Timer* timer, GContext* ctx, bool highlighted) {
   timer_draw_row_with_colors(timer, ctx,
                              highlighted ? GColorWhite : GColorBlack,
                              highlighted ? GColorWhite : GColorBlack,
-                             GCompOpAssign);
+                             highlighted);
 }
 
 void timer_draw_row_inverted(Timer* timer, GContext* ctx) {
-  timer_draw_row_with_colors(timer, ctx, GColorWhite, GColorWhite, GCompOpAssignInverted);
+  timer_draw_row_with_colors(timer, ctx, GColorWhite, GColorWhite, true);
 }
 
 void menu_draw_option(GContext* ctx, char* option, char* value, bool highlighted) {

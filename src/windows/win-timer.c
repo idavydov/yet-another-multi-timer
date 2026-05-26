@@ -128,26 +128,26 @@ static void menu_draw_row(GContext* ctx, const Layer* cell_layer, MenuIndex* cel
     case MENU_ROW_PAUSE: {
       switch (s_timer->status) {
         case TIMER_STATUS_RUNNING:
-          menu_draw_row_icon_text(ctx, "Pause", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PAUSE), highlighted);
+          menu_draw_row_icon_text(ctx, "Pause", ICON_RECT_PAUSE, highlighted);
           break;
         case TIMER_STATUS_PAUSED:
-          menu_draw_row_icon_text(ctx, "Resume", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PLAY), highlighted);
+          menu_draw_row_icon_text(ctx, "Resume", ICON_RECT_PLAY, highlighted);
           break;
         case TIMER_STATUS_DONE:
         case TIMER_STATUS_STOPPED:
-          menu_draw_row_icon_text(ctx, "Start", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PLAY), highlighted);
+          menu_draw_row_icon_text(ctx, "Start", ICON_RECT_PLAY, highlighted);
           break;
       }
       break;
     }
     case MENU_ROW_RESET:
-      menu_draw_row_icon_text(ctx, "Reset", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_RESET), highlighted);
+      menu_draw_row_icon_text(ctx, "Reset", ICON_RECT_RESET, highlighted);
       break;
     case MENU_ROW_DELETE:
-      menu_draw_row_icon_text(ctx, "Delete", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_DELETE), highlighted);
+      menu_draw_row_icon_text(ctx, "Delete", ICON_RECT_DELETE, highlighted);
       break;
     case MENU_ROW_EDIT:
-      menu_draw_row_icon_text(ctx, "Edit", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_EDIT), highlighted);
+      menu_draw_row_icon_text(ctx, "Edit", ICON_RECT_EDIT, highlighted);
       break;
   }
 }

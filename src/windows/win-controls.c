@@ -98,16 +98,16 @@ static void menu_draw_row(GContext* ctx, const Layer* cell_layer, MenuIndex* cel
   bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
   switch (cell_index->row) {
     case MENU_ROW_RESUME:
-      menu_draw_row_icon_text(ctx, "Resume All", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PLAY), highlighted);
+      menu_draw_row_icon_text(ctx, "Resume All", ICON_RECT_PLAY, highlighted);
       break;
     case MENU_ROW_PAUSE:
-      menu_draw_row_icon_text(ctx, "Pause All", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PAUSE), highlighted);
+      menu_draw_row_icon_text(ctx, "Pause All", ICON_RECT_PAUSE, highlighted);
       break;
     case MENU_ROW_RESET:
-      menu_draw_row_icon_text(ctx, "Reset All", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_RESET), highlighted);
+      menu_draw_row_icon_text(ctx, "Reset All", ICON_RECT_RESET, highlighted);
       break;
     case MENU_ROW_DELETE:
-      menu_draw_row_icon_text(ctx, "Delete All", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_DELETE), highlighted);
+      menu_draw_row_icon_text(ctx, "Delete All", ICON_RECT_DELETE, highlighted);
       break;
   }
 }

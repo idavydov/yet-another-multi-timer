@@ -42,6 +42,11 @@
         },
         {
           "type": "png",
+          "name": "ICONS_16_SELECTED",
+          "file": "images/icons-selected.png"
+        },
+        {
+          "type": "png",
           "name": "IMAGE_ALARM",
           "file": "images/alarm.png"
         },

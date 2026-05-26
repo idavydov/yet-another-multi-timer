@@ -34,7 +34,8 @@ src/common.h
 #include <pebble.h>
 #include "timer.h"
 
-void menu_draw_row_icon_text(GContext* ctx, char* text, GBitmap* icon, bool highlighted);
+GBitmap* icon_get_bitmap(GRect icon_rect, bool highlighted);
+void menu_draw_row_icon_text(GContext* ctx, char* text, GRect icon_rect, bool highlighted);
 void timer_draw_row(Timer* timer, GContext* ctx, bool highlighted);
 void timer_draw_row_inverted(Timer* timer, GContext* ctx);
 void menu_draw_option(GContext* ctx, char* option, char* value, bool highlighted);
