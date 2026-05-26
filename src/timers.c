@@ -155,6 +155,7 @@ void timers_clear(void) {
   while (linked_list_count(timers) > 0) {
     Timer* timer = (Timer*) linked_list_get(timers, 0);
     linked_list_remove(timers, 0);
+    timer_pause(timer);
     free(timer);
   }
 }

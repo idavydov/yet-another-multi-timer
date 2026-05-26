@@ -36,8 +36,11 @@ src/timer.c
 #include "settings.h"
 #include "windows/win-vibrate.h"
 
+#define TIMER_AUTO_RESET_MS 5000
+
 static void timer_tick(void* context);
 static void timer_finish(Timer* timer);
+static void timer_auto_reset(void* context);
 static void timer_schedule_tick(Timer* timer);
 static void timer_cancel_tick(Timer* timer);
 static void timer_schedule_wakeup(Timer* timer, uint16_t offset);
@@ -195,6 +198,17 @@ static void timer_tick(void* context) {
 static void timer_finish(Timer* timer) {
   timer->status = TIMER_STATUS_DONE;
   timer_completed_action(timer);
+  if (timer->status == TIMER_STATUS_DONE) {
+    timer->timer = app_timer_register(TIMER_AUTO_RESET_MS, timer_auto_reset, timer);
+  }
+}
+
+static void timer_auto_reset(void* context) {
+  Timer* timer = (Timer*)context;
+  timer->timer = NULL;
+  if (timer->status == TIMER_STATUS_DONE) {
+    timer_reset(timer);
+  }
 }
 
 static void timer_schedule_tick(Timer* timer) {
