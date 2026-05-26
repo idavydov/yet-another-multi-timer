@@ -121,31 +121,32 @@ static int16_t menu_get_cell_height_callback(MenuLayer* me, MenuIndex* cell_inde
 
 static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
   char value[16] = "";
+  bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
 
   switch (cell_index->section) {
     case MENU_SECTION_TIMERS:
       switch (cell_index->row) {
         case MENU_ROW_TIMERS_START:
-          menu_draw_option(ctx, "Auto Start", settings()->timers_start_auto ? "ON": "OFF");
+          menu_draw_option(ctx, "Auto Start", settings()->timers_start_auto ? "ON": "OFF", highlighted);
           break;
         case MENU_ROW_TIMERS_VIBRATE:
           strcpy(value, timer_vibe_str(settings()->timers_vibration, true));
           uppercase(value);
-          menu_draw_option(ctx, "Vibration", value);
+          menu_draw_option(ctx, "Vibration", value, highlighted);
           break;
         case MENU_ROW_TIMERS_DURATION:
           timer_time_str(settings()->timers_duration, settings()->timers_hours, value, 16);
-          menu_draw_option(ctx, "Duration", value);
+          menu_draw_option(ctx, "Duration", value, highlighted);
           break;
         case MENU_ROW_TIMERS_HOURS:
-          menu_draw_option(ctx, "Show Hours", settings()->timers_hours ? "ON": "OFF");
+          menu_draw_option(ctx, "Show Hours", settings()->timers_hours ? "ON": "OFF", highlighted);
           break;
       }
       break;
     case MENU_SECTION_OTHER:
       switch (cell_index->row) {
         case MENU_ROW_OTHER_CLOCK:
-          menu_draw_option(ctx, "Show Clock", settings()->show_clock ? "ON": "OFF");
+          menu_draw_option(ctx, "Show Clock", settings()->show_clock ? "ON": "OFF", highlighted);
           break;
       }
       break;

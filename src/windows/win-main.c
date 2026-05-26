@@ -179,39 +179,43 @@ static void menu_draw_row(GContext* ctx, const Layer* cell_layer, MenuIndex* cel
 static void menu_draw_row_clock(GContext* ctx, const Layer* cell_layer) {
   char time_str[10];
   clock_copy_time_string(time_str, 10);
+  bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
 
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, highlighted ? GColorWhite : GColorBlack);
   graphics_draw_text(ctx, time_str,
     fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
     GRect(33, -3, PEBBLE_WIDTH - 33, 28), GTextOverflowModeFill,
     GTextAlignmentLeft, NULL);
+  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
   graphics_draw_bitmap_in_rect(ctx,
     bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_CLOCK),
     GRect(8, 8, 16, 16));
+  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
 }
 
 static void menu_draw_row_timers(GContext* ctx, const Layer* cell_layer, uint16_t row_index) {
   Timer* timer = timers_get(row_index);
   if (! timer) { return; }
-  timer_draw_row(timer, ctx);
+  timer_draw_row(timer, ctx, menu_cell_layer_is_highlighted(cell_layer));
 }
 
 static void menu_draw_row_other(GContext* ctx, const Layer* cell_layer, uint16_t row_index) {
+  bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
   switch (row_index) {
     case MENU_ROW_OTHER_ADD_TIMER:
-      menu_draw_row_icon_text(ctx, "Timer", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_ADD));
+      menu_draw_row_icon_text(ctx, "Timer", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_ADD), highlighted);
       break;
     case MENU_ROW_OTHER_ADD_STOPWATCH:
-      menu_draw_row_icon_text(ctx, "Stopwatch", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_ADD));
+      menu_draw_row_icon_text(ctx, "Stopwatch", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_ADD), highlighted);
       break;
     case MENU_ROW_OTHER_CONTROLS:
-      menu_draw_row_icon_text(ctx, "Controls", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_CONTROLS));
+      menu_draw_row_icon_text(ctx, "Controls", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_CONTROLS), highlighted);
       break;
     case MENU_ROW_OTHER_SETTINGS:
-      menu_draw_row_icon_text(ctx, "Settings", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_SETTINGS));
+      menu_draw_row_icon_text(ctx, "Settings", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_SETTINGS), highlighted);
       break;
     case MENU_ROW_OTHER_ABOUT:
-      menu_draw_row_icon_text(ctx, "About", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16,  ICON_RECT_ABOUT));
+      menu_draw_row_icon_text(ctx, "About", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16,  ICON_RECT_ABOUT), highlighted);
       break;
   }
 }

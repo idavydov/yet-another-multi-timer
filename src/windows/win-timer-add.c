@@ -55,7 +55,7 @@ static int16_t menu_get_header_height_callback(MenuLayer *me, uint16_t section_i
 static int16_t menu_get_cell_height_callback(MenuLayer* me, MenuIndex* cell_index, void* data);
 static void menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, uint16_t section_index, void *data);
 static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data);
-static void menu_draw_row_main(GContext* ctx, uint16_t row);
+static void menu_draw_row_main(GContext* ctx, uint16_t row, bool highlighted);
 static void menu_select_click_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context);
 static void menu_select_main(uint16_t row);
 static void menu_select_footer(void);
@@ -146,12 +146,13 @@ static void menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, ui
 }
 
 static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
+  bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
   switch (cell_index->section) {
     case MENU_SECTION_MAIN:
-      menu_draw_row_main(ctx, cell_index->row);
+      menu_draw_row_main(ctx, cell_index->row, highlighted);
       break;
     case MENU_SECTION_FOOTER:
-      graphics_context_set_text_color(ctx, GColorBlack);
+      graphics_context_set_text_color(ctx, highlighted ? GColorWhite : GColorBlack);
       graphics_draw_text(ctx, s_mode_edit ? "Save Timer" : "Add Timer",
         fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD), GRect(4, 5, 136, 28),
         GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -159,20 +160,20 @@ static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuI
   }
 }
 
-static void menu_draw_row_main(GContext* ctx, uint16_t row) {
+static void menu_draw_row_main(GContext* ctx, uint16_t row, bool highlighted) {
   char tmp[16];
   switch (row) {
     case MENU_ROW_DURATION:
       timer_time_str(s_timer->length, settings()->timers_hours, tmp, sizeof(tmp));
-      menu_draw_option(ctx, "Duration", tmp);
+      menu_draw_option(ctx, "Duration", tmp, highlighted);
       break;
     case MENU_ROW_VIBRATION:
       strcpy(tmp, timer_vibe_str(s_timer->vibration, true));
       uppercase(tmp);
-      menu_draw_option(ctx, "Vibration", tmp);
+      menu_draw_option(ctx, "Vibration", tmp, highlighted);
       break;
     case MENU_ROW_REPEAT:
-      menu_draw_option(ctx, "Repeat", (s_timer->repeat == TIMER_REPEAT_INFINITE) ? "ON" : "OFF");
+      menu_draw_option(ctx, "Repeat", (s_timer->repeat == TIMER_REPEAT_INFINITE) ? "ON" : "OFF", highlighted);
       break;
   }
 }

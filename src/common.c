@@ -36,12 +36,14 @@ src/common.c
 #include "icons.h"
 #include "settings.h"
 
-void menu_draw_row_icon_text(GContext* ctx, char* text, GBitmap* icon) {
-  graphics_context_set_text_color(ctx, GColorBlack);
+void menu_draw_row_icon_text(GContext* ctx, char* text, GBitmap* icon, bool highlighted) {
+  graphics_context_set_text_color(ctx, highlighted ? GColorWhite : GColorBlack);
+  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
   if (icon) {
     graphics_draw_bitmap_in_rect(ctx, icon, GRect(8, 8, 16, 16));
   }
-graphics_draw_text(ctx, text,
+  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+  graphics_draw_text(ctx, text,
     fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
     GRect(33, -1, PEBBLE_WIDTH - 33, 24), GTextOverflowModeFill,
     GTextAlignmentLeft, NULL);
@@ -106,16 +108,19 @@ static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_
   free(time_left);
 }
 
-void timer_draw_row(Timer* timer, GContext* ctx) {
-  timer_draw_row_with_colors(timer, ctx, GColorBlack, GColorBlack, GCompOpAssign);
+void timer_draw_row(Timer* timer, GContext* ctx, bool highlighted) {
+  timer_draw_row_with_colors(timer, ctx,
+                             highlighted ? GColorWhite : GColorBlack,
+                             highlighted ? GColorWhite : GColorBlack,
+                             GCompOpAssign);
 }
 
 void timer_draw_row_inverted(Timer* timer, GContext* ctx) {
   timer_draw_row_with_colors(timer, ctx, GColorWhite, GColorWhite, GCompOpAssignInverted);
 }
 
-void menu_draw_option(GContext* ctx, char* option, char* value) {
-  graphics_context_set_text_color(ctx, GColorBlack);
+void menu_draw_option(GContext* ctx, char* option, char* value, bool highlighted) {
+  graphics_context_set_text_color(ctx, highlighted ? GColorWhite : GColorBlack);
   graphics_draw_text(ctx, option, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD), GRect(4, 0, 136, 28), GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   graphics_draw_text(ctx, value, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(4, 5, 136, 20), GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
 }

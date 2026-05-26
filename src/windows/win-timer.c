@@ -123,30 +123,31 @@ static int16_t menu_cell_height(struct MenuLayer *menu, MenuIndex *cell_index, v
 }
 
 static void menu_draw_row(GContext* ctx, const Layer* cell_layer, MenuIndex* cell_index, void* callback_context) {
+  bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
   switch (cell_index->row) {
     case MENU_ROW_PAUSE: {
       switch (s_timer->status) {
         case TIMER_STATUS_RUNNING:
-          menu_draw_row_icon_text(ctx, "Pause", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PAUSE));
+          menu_draw_row_icon_text(ctx, "Pause", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PAUSE), highlighted);
           break;
         case TIMER_STATUS_PAUSED:
-          menu_draw_row_icon_text(ctx, "Resume", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PLAY));
+          menu_draw_row_icon_text(ctx, "Resume", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PLAY), highlighted);
           break;
         case TIMER_STATUS_DONE:
         case TIMER_STATUS_STOPPED:
-          menu_draw_row_icon_text(ctx, "Start", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PLAY));
+          menu_draw_row_icon_text(ctx, "Start", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_PLAY), highlighted);
           break;
       }
       break;
     }
     case MENU_ROW_RESET:
-      menu_draw_row_icon_text(ctx, "Reset", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_RESET));
+      menu_draw_row_icon_text(ctx, "Reset", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_RESET), highlighted);
       break;
     case MENU_ROW_DELETE:
-      menu_draw_row_icon_text(ctx, "Delete", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_DELETE));
+      menu_draw_row_icon_text(ctx, "Delete", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_DELETE), highlighted);
       break;
     case MENU_ROW_EDIT:
-      menu_draw_row_icon_text(ctx, "Edit", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_EDIT));
+      menu_draw_row_icon_text(ctx, "Edit", bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_EDIT), highlighted);
       break;
   }
 }
