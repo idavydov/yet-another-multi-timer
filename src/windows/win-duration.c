@@ -31,41 +31,42 @@ src/windows/win-duration.c
 
 #include <pebble.h>
 
-#include <bitmap-loader.h>
-#include <pebble-assist.h>
+#include <selection_layer.h>
 
 #include "win-duration.h"
 
-#include "../timer.h"
-#include "../common.h"
-#include "../icons.h"
-#include "../settings.h"
+#define NUM_FIELDS 3
+#define FIELD_HOURS 0
+#define FIELD_MINUTES 1
+#define FIELD_SECONDS 2
 
-#define MODE_HOURS 0
-#define MODE_MINUTES 1
-#define MODE_SECONDS 2
+#define SECONDS_IN_MINUTE 60
+#define SECONDS_IN_HOUR 3600
+#define MINUTES_IN_HOUR 60
+#define HOURS_MAX 100
+#define REPEATING_CLICK_THRESHOLD 10
+#define TIMER_MINIMUM_DURATION 5
+#define TIMELINE_MINIMUM_DURATION 900
 
 static void window_load(Window* window);
 static void window_unload(Window* window);
-static void layer_update(Layer* me, GContext* ctx);
-static void layer_action_bar_click_config_provider(void *context);
-static void action_bar_layer_down_handler(ClickRecognizerRef recognizer, void *context);
-static void action_bar_layer_up_handler(ClickRecognizerRef recognizer, void *context);
-static void action_bar_layer_select_handler(ClickRecognizerRef recognizer, void *context);
+static char* selection_get_text(unsigned index, void *context);
+static void selection_complete(void *context);
+static void selection_increment(unsigned index, uint8_t clicks, void *context);
+static void selection_decrement(unsigned index, uint8_t clicks, void *context);
 static void update_timer_length(void);
+static void update_sub_text(void);
 
 static Window* s_window;
-static Layer* s_layer;
-static ActionBarLayer* s_action_bar;
+static TextLayer* s_title_layer;
+static TextLayer* s_subtitle_layer;
+static Layer* s_selection_layer;
+static StatusBarLayer* s_status_bar;
 static uint32_t s_duration = 0;
 static DurationCallback s_callback;
 
-static int s_mode = MODE_MINUTES;
-static int s_hours = 0;
-static int s_minutes = 0;
-static int s_seconds = 0;
-
-static GFont s_font_duration;
+static int32_t s_field_values[NUM_FIELDS];
+static char s_field_buffers[NUM_FIELDS][3];
 
 void win_duration_init(void) {
   s_window = window_create();
@@ -78,142 +79,154 @@ void win_duration_init(void) {
 void win_duration_show(uint16_t duration, DurationCallback callback) {
   s_duration = duration;
   s_callback = callback;
+  s_field_values[FIELD_HOURS] = s_duration / SECONDS_IN_HOUR;
+  s_field_values[FIELD_MINUTES] = (s_duration % SECONDS_IN_HOUR) / SECONDS_IN_MINUTE;
+  s_field_values[FIELD_SECONDS] = s_duration % SECONDS_IN_MINUTE;
   window_stack_push(s_window, true);
-  s_mode = settings()->timers_hours ? MODE_HOURS : MODE_MINUTES;
-  s_hours = s_duration / 3600;
-  s_minutes = settings()->timers_hours ? ((s_duration % 3600) / 60) : (s_duration / 60);
-  s_seconds = settings()->timers_hours ? ((s_duration % 3600) % 60) : (s_duration % 60);
-  layer_mark_dirty(s_layer);
+  if (s_selection_layer) {
+    selection_layer_set_selected_cell(s_selection_layer, FIELD_MINUTES);
+  }
+  update_sub_text();
 }
 
 static void window_load(Window* window) {
-  s_layer = layer_create_fullscreen(s_window);
-  layer_set_update_proc(s_layer, layer_update);
-  layer_add_to_window(s_layer, s_window);
+  Layer *root = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(root);
 
-  s_action_bar = action_bar_layer_create();
-  action_bar_layer_add_to_window(s_action_bar, s_window);
-  action_bar_layer_set_click_config_provider(s_action_bar, layer_action_bar_click_config_provider);
-  action_bar_layer_set_icon(s_action_bar, BUTTON_ID_UP, bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_ACTION_INC));
-  action_bar_layer_set_icon(s_action_bar, BUTTON_ID_DOWN, bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_ACTION_DEC));
-  action_bar_layer_set_icon(s_action_bar, BUTTON_ID_SELECT, bitmaps_get_sub_bitmap(RESOURCE_ID_ICONS_16, ICON_RECT_ACTION_TICK));
+  s_title_layer = text_layer_create(GRect(0, bounds.size.h / 7, bounds.size.w, 40));
+  text_layer_set_background_color(s_title_layer, GColorClear);
+  text_layer_set_text_color(s_title_layer, GColorBlack);
+  text_layer_set_text(s_title_layer, "Set Timer");
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+  text_layer_set_font(s_title_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+#else
+  text_layer_set_font(s_title_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+#endif
+  text_layer_set_text_alignment(s_title_layer, GTextAlignmentCenter);
+  layer_add_child(root, text_layer_get_layer(s_title_layer));
 
-  s_font_duration = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_AUDI_70_BOLD));
+  s_subtitle_layer = text_layer_create(GRect(1, bounds.size.h - 43 * bounds.size.h / 168, bounds.size.w, 40));
+  text_layer_set_background_color(s_subtitle_layer, GColorClear);
+  text_layer_set_text_color(s_subtitle_layer, GColorBlack);
+  text_layer_set_text_alignment(s_subtitle_layer, GTextAlignmentCenter);
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+  text_layer_set_font(s_subtitle_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+#else
+  text_layer_set_font(s_subtitle_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+#endif
+  layer_add_child(root, text_layer_get_layer(s_subtitle_layer));
+
+  uint16_t cell_height = (bounds.size.h + 4) / 5;
+  uint16_t cell_y_start = bounds.size.h / 2 - cell_height / 2;
+#ifdef PBL_ROUND
+  s_selection_layer = selection_layer_create(GRect(26, cell_y_start, bounds.size.w - 52, cell_height), NUM_FIELDS);
+  uint8_t cell_width = (bounds.size.w - 52 - (NUM_FIELDS - 1) * 4) / NUM_FIELDS;
+#else
+  s_selection_layer = selection_layer_create(GRect(8, cell_y_start, bounds.size.w - 16, cell_height), NUM_FIELDS);
+  uint8_t cell_width = (bounds.size.w - 16 - (NUM_FIELDS - 1) * 4) / NUM_FIELDS;
+#endif
+  for (int i = 0; i < NUM_FIELDS; i++) {
+    selection_layer_set_cell_width(s_selection_layer, i, cell_width);
+  }
+  selection_layer_set_cell_padding(s_selection_layer, 4);
+  selection_layer_set_active_bg_color(s_selection_layer, GColorBlack);
+  selection_layer_set_inactive_bg_color(s_selection_layer, GColorLightGray);
+  selection_layer_set_selected_cell(s_selection_layer, FIELD_MINUTES);
+  selection_layer_set_click_config_onto_window(s_selection_layer, window);
+  selection_layer_set_callbacks(s_selection_layer, NULL, (SelectionLayerCallbacks) {
+    .get_cell_text = selection_get_text,
+    .complete = selection_complete,
+    .increment = selection_increment,
+    .decrement = selection_decrement,
+  });
+  layer_add_child(root, s_selection_layer);
+
+  s_status_bar = status_bar_layer_create();
+  status_bar_layer_set_colors(s_status_bar, GColorClear, GColorBlack);
+  layer_add_child(root, status_bar_layer_get_layer(s_status_bar));
+
+  update_sub_text();
 }
 
 static void window_unload(Window* window) {
-  action_bar_layer_destroy(s_action_bar);
-  layer_destroy(s_layer);
-  fonts_unload_custom_font(s_font_duration);
+  status_bar_layer_destroy(s_status_bar);
+  selection_layer_destroy(s_selection_layer);
+  text_layer_destroy(s_subtitle_layer);
+  text_layer_destroy(s_title_layer);
+
+  s_status_bar = NULL;
+  s_selection_layer = NULL;
+  s_subtitle_layer = NULL;
+  s_title_layer = NULL;
 }
 
-static void layer_update(Layer* me, GContext* ctx) {
+static char* selection_get_text(unsigned index, void *context) {
+  snprintf(s_field_buffers[index], sizeof(s_field_buffers[0]), "%02d", (int)s_field_values[index]);
+  return s_field_buffers[index];
+}
 
-  graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_context_set_stroke_color(ctx, GColorBlack);
-
-  char summary_str[32];
-  timer_time_str(s_duration, settings()->timers_hours, summary_str, 32);
-  graphics_draw_text(ctx, summary_str, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), GRect(0, 0, 144 - 16, 28), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
-
-  // Draw Minutes
-  char* time_str = "000";
-  char mode_str[16];
-  switch (s_mode) {
-    case MODE_HOURS:
-      snprintf(time_str, 3, "%02d", s_hours);
-      snprintf(mode_str, 16, s_hours == 1 ? "HOUR" : "HOURS");
-    break;
-    case MODE_MINUTES:
-      snprintf(time_str, 3, "%02d", s_minutes);
-      snprintf(mode_str, 16, s_seconds == 1 ? "MINUTE" : "MINUTES");
-    break;
-    case MODE_SECONDS:
-      snprintf(time_str, 3, "%02d", s_seconds);
-      snprintf(mode_str, 16, s_seconds == 1 ? "SECOND" : "SECONDS");
-    break;
+static void selection_complete(void *context) {
+  update_timer_length();
+  if (s_callback) {
+    s_callback(s_duration);
   }
-  graphics_draw_text(ctx, time_str, s_font_duration, GRect(0, 27, 144 - 16, 70), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, mode_str, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(0, 98, 144 - 16, 18), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  if (window_stack_get_top_window() == s_window) {
+    window_stack_pop(true);
+  }
 }
 
-static void layer_action_bar_click_config_provider(void *context) {
-  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 100, action_bar_layer_down_handler);
-  window_single_repeating_click_subscribe(BUTTON_ID_UP, 100, action_bar_layer_up_handler);
-  window_single_click_subscribe(BUTTON_ID_SELECT, action_bar_layer_select_handler);
-}
-
-static void action_bar_layer_down_handler(ClickRecognizerRef recognizer, void *context) {
-  switch (s_mode) {
-    case MODE_HOURS:
-      s_hours -= 1;
-      if (s_hours < 0) {
-        s_hours = 0;
-      }
-    break;
-    case MODE_MINUTES:
-      s_minutes -= 1;
-      if (s_minutes < 0) {
-        s_minutes += 60;
-      }
-    break;
-    case MODE_SECONDS:
-      s_seconds -= 1;
-      if (s_seconds < 0) {
-        s_seconds += 60;
-      }
-    break;
+static void selection_increment(unsigned index, uint8_t clicks, void *context) {
+  s_field_values[index] += (clicks > REPEATING_CLICK_THRESHOLD) ? 2 : 1;
+  int32_t max_value = (index == FIELD_HOURS) ? HOURS_MAX : MINUTES_IN_HOUR;
+  if (s_field_values[index] >= max_value) {
+    s_field_values[index] -= max_value;
   }
   update_timer_length();
-  layer_mark_dirty(s_layer);
+  update_sub_text();
 }
 
-static void action_bar_layer_up_handler(ClickRecognizerRef recognizer, void *context) {
-  switch (s_mode) {
-    case MODE_HOURS:
-      s_hours += 1;
-    break;
-    case MODE_MINUTES:
-      s_minutes += 1;
-      if (s_minutes >= 60 && settings()->timers_hours) {
-        s_minutes -= 60;
-      }
-      if (s_minutes >= 100) {
-        s_minutes = 99;
-      }
-    break;
-    case MODE_SECONDS:
-      s_seconds += 1;
-      if (s_seconds >= 60) {
-        s_seconds -= 60;
-      }
-    break;
+static void selection_decrement(unsigned index, uint8_t clicks, void *context) {
+  s_field_values[index] -= (clicks > REPEATING_CLICK_THRESHOLD) ? 2 : 1;
+  int32_t max_value = (index == FIELD_HOURS) ? HOURS_MAX : MINUTES_IN_HOUR;
+  if (s_field_values[index] < 0) {
+    s_field_values[index] += max_value;
   }
   update_timer_length();
-  layer_mark_dirty(s_layer);
-}
-
-static void action_bar_layer_select_handler(ClickRecognizerRef recognizer, void *context) {
-  switch (s_mode) {
-    case MODE_HOURS:
-      s_mode = MODE_MINUTES;
-    break;
-    case MODE_MINUTES:
-      s_mode = MODE_SECONDS;
-    break;
-    case MODE_SECONDS:
-      s_callback(s_duration);
-      window_stack_pop(true);
-    break;
-  }
-  layer_mark_dirty(s_layer);
+  update_sub_text();
 }
 
 static void update_timer_length(void) {
-  if (settings()->timers_hours) {
-    s_duration = s_hours * 3600 + s_minutes * 60 + s_seconds;
+  s_duration = s_field_values[FIELD_HOURS] * SECONDS_IN_HOUR +
+    s_field_values[FIELD_MINUTES] * SECONDS_IN_MINUTE +
+    s_field_values[FIELD_SECONDS];
+}
+
+static void update_sub_text(void) {
+  if (!s_subtitle_layer) {
+    return;
+  }
+
+  if (s_duration < TIMER_MINIMUM_DURATION) {
+    text_layer_set_text(s_subtitle_layer, "");
+    layer_set_hidden(text_layer_get_layer(s_subtitle_layer), false);
+    return;
+  }
+
+  if (s_duration < TIMELINE_MINIMUM_DURATION) {
+    layer_set_hidden(text_layer_get_layer(s_subtitle_layer), true);
+    return;
+  }
+
+  layer_set_hidden(text_layer_get_layer(s_subtitle_layer), false);
+
+  time_t end = time(NULL) + s_duration;
+  static char buffer[] = "End: 00:00 AM";
+  struct tm *tick_time = localtime(&end);
+  if (clock_is_24h_style()) {
+    strftime(buffer, sizeof(buffer), "End: %k:%M", tick_time);
   }
   else {
-    s_duration = s_minutes * 60 + s_seconds;
+    strftime(buffer, sizeof(buffer), "End: %l:%M %p", tick_time);
   }
+  text_layer_set_text(s_subtitle_layer, buffer);
 }

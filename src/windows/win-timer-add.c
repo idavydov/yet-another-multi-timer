@@ -61,6 +61,7 @@ static void menu_select_main(uint16_t row);
 static void menu_select_footer(void);
 static void vibration_callback(TimerVibration vibration);
 static void duration_callback(uint32_t duration);
+static void new_timer_duration_callback(uint32_t duration);
 
 static Window* s_window;
 static MenuLayer* s_menu;
@@ -76,13 +77,13 @@ void win_timer_add_init(void) {
 }
 
 void win_timer_add_show_new(void) {
-  window_stack_push(s_window, true);
   if (NULL != s_timer) {
     free(s_timer);
     s_timer = NULL;
   }
   s_timer = timer_create_timer();
   s_mode_edit = false;
+  win_duration_show(s_timer->length, new_timer_duration_callback);
 }
 
 void win_timer_add_show_edit(Timer* tmr) {
@@ -244,4 +245,9 @@ static void vibration_callback(TimerVibration vibration) {
 
 static void duration_callback(uint32_t duration) {
   s_timer->length = duration;
+}
+
+static void new_timer_duration_callback(uint32_t duration) {
+  s_timer->length = duration;
+  menu_select_footer();
 }

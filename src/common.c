@@ -71,7 +71,6 @@ static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_
 
   switch (timer->status) {
     case TIMER_STATUS_STOPPED:
-      bmp_icon = icon_get_bitmap(ICON_RECT_STOP, highlighted);
       break;
     case TIMER_STATUS_RUNNING:
       bmp_icon = icon_get_bitmap(ICON_RECT_PLAY, highlighted);
