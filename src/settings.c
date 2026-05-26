@@ -43,7 +43,7 @@ static void migrate_settings_02(SettingsTiny tiny);
 
 // Set the default settings for the app.
 Settings _settings = {
-  .timers_start_auto = false,
+  .timers_start_auto = true,
   .timers_vibration = TIMER_VIBE_SHORT,
   .timers_duration = 10 * 60,
   .timers_hours = false,

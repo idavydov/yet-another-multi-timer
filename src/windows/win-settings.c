@@ -41,19 +41,14 @@ src/windows/win-settings.c
 #include "../timers.h"
 #include "../common.h"
 
-#define MENU_NUM_SECTIONS   2
+#define MENU_NUM_SECTIONS   1
 #define MENU_SECTION_TIMERS 0
-#define MENU_SECTION_OTHER  1
 
-#define MENU_SECTION_ROWS_TIMERS  4
-#define MENU_SECTION_ROWS_OTHER   1
+#define MENU_SECTION_ROWS_TIMERS  3
 
 #define MENU_ROW_TIMERS_START    0
 #define MENU_ROW_TIMERS_VIBRATE  1
 #define MENU_ROW_TIMERS_DURATION 2
-#define MENU_ROW_TIMERS_HOURS    3
-
-#define MENU_ROW_OTHER_CLOCK    0
 
 static uint16_t menu_get_num_sections_callback(MenuLayer *me, void *data);
 static uint16_t menu_get_num_rows_callback(MenuLayer *me, uint16_t section_index, void *data);
@@ -105,8 +100,6 @@ static uint16_t menu_get_num_rows_callback(MenuLayer *me, uint16_t section_index
   switch (section_index) {
     case MENU_SECTION_TIMERS:
       return MENU_SECTION_ROWS_TIMERS;
-    case MENU_SECTION_OTHER:
-      return MENU_SECTION_ROWS_OTHER;
   }
   return 0;
 }
@@ -138,16 +131,6 @@ static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuI
           timer_time_str(settings()->timers_duration, settings()->timers_hours, value, 16);
           menu_draw_option(ctx, "Duration", value, highlighted);
           break;
-        case MENU_ROW_TIMERS_HOURS:
-          menu_draw_option(ctx, "Show Hours", settings()->timers_hours ? "ON": "OFF", highlighted);
-          break;
-      }
-      break;
-    case MENU_SECTION_OTHER:
-      switch (cell_index->row) {
-        case MENU_ROW_OTHER_CLOCK:
-          menu_draw_option(ctx, "Show Clock", settings()->show_clock ? "ON": "OFF", highlighted);
-          break;
       }
       break;
   }
@@ -157,9 +140,6 @@ static void menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, ui
   switch (section_index) {
     case MENU_SECTION_TIMERS:
       menu_cell_basic_header_draw(ctx, cell_layer, "Timer Defaults");
-    break;
-    case MENU_SECTION_OTHER:
-      menu_cell_basic_header_draw(ctx, cell_layer, "Other Settings");
     break;
   }
 }
@@ -178,18 +158,6 @@ static void menu_select_click_callback(MenuLayer *menu_layer, MenuIndex *cell_in
         case MENU_ROW_TIMERS_DURATION:
           win_duration_show(settings()->timers_duration, duration_callback);
         break;
-        case MENU_ROW_TIMERS_HOURS:
-          settings()->timers_hours = ! settings()->timers_hours;
-          menu_layer_reload_data(layer_menu);
-        break;
-      }
-      break;
-    case MENU_SECTION_OTHER:
-      switch (cell_index->row) {
-        case MENU_ROW_OTHER_CLOCK:
-          settings()->show_clock = ! settings()->show_clock;
-          menu_layer_reload_data(layer_menu);
-          break;
       }
       break;
   }

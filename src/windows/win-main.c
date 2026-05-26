@@ -48,37 +48,39 @@ src/windows/win-main.c
 #include "../timers.h"
 #include "../settings.h"
 
-#define MENU_SECTION_CLOCK   0
-#define MENU_SECTION_TIMERS  1
-#define MENU_SECTION_OTHER   2
+#define MENU_SECTION_ADD_TIMER           0
+#define MENU_SECTION_TIMERS              1
+#define MENU_SECTION_ADD_STOPWATCH       2
+#define MENU_SECTION_STOPWATCHES         3
+#define MENU_SECTION_SETTINGS            4
 
-#define MENU_ROW_COUNT_OTHER 5
-
-#define MENU_ROW_OTHER_ADD_TIMER     0
-#define MENU_ROW_OTHER_ADD_STOPWATCH 1
-#define MENU_ROW_OTHER_CONTROLS      2
-#define MENU_ROW_OTHER_SETTINGS      3
-#define MENU_ROW_OTHER_ABOUT         4
+#define MENU_ROW_SETTINGS            0
 
 static void window_load(Window* window);
 static void window_unload(Window* window);
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed);
 static uint16_t menu_num_sections(struct MenuLayer* menu, void* callback_context);
 static uint16_t menu_num_rows(struct MenuLayer* menu, uint16_t section_index, void* callback_context);
 static int16_t menu_cell_height(struct MenuLayer *menu, MenuIndex *cell_index, void *callback_context);
 static void menu_draw_row(GContext* ctx, const Layer* cell_layer, MenuIndex* cell_index, void* callback_context);
-static void menu_draw_row_clock(GContext* ctx, const Layer* cell_layer);
-static void menu_draw_row_timers(GContext* ctx, const Layer* cell_layer, uint16_t row_index);
-static void menu_draw_row_other(GContext* ctx, const Layer* cell_layer, uint16_t row_index);
+static void menu_draw_row_timers(GContext* ctx, const Layer* cell_layer, uint16_t section_index, uint16_t row_index);
+static void menu_draw_row_add_timer(GContext* ctx, const Layer* cell_layer);
+static void menu_draw_row_add_stopwatch(GContext* ctx, const Layer* cell_layer);
+static void menu_draw_row_settings(GContext* ctx, const Layer* cell_layer);
 static void menu_select(struct MenuLayer* menu, MenuIndex* cell_index, void* callback_context);
-static void menu_select_timers(uint16_t row_index);
-static void menu_select_other(uint16_t row_index);
+static void menu_select_timers(uint16_t section_index, uint16_t row_index);
+static void menu_select_add_stopwatch(void);
 static void menu_select_long(struct MenuLayer* menu, MenuIndex* cell_index, void* callback_context);
 static void timers_update_handler(void);
 static void timer_highlight_handler(Timer* timer);
+static uint8_t timers_count_for_section(uint16_t section_index);
+static int16_t timers_index_for_section_row(uint16_t section_index, uint16_t row_index);
+static bool timer_is_in_section(Timer* timer, uint16_t section_index);
+static bool timer_is_stopwatch(Timer* timer);
+static MenuIndex menu_index_for_timer(Timer* timer);
 
 static Window*    s_window;
 static MenuLayer* s_menu;
+static StatusBarLayer* s_status_bar;
 
 void win_main_init(void) {
   s_window = window_create();
@@ -90,13 +92,10 @@ void win_main_init(void) {
   timers_register_highlight_handler(timer_highlight_handler);
   win_timer_add_init();
   win_timer_init();
-  win_about_init();
-  win_controls_init();
   win_settings_init();
   win_vibration_init();
   win_duration_init();
   win_vibrate_init();
-  tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
 }
 
 void win_main_show(void) {
@@ -104,7 +103,16 @@ void win_main_show(void) {
 }
 
 static void window_load(Window* window) {
-  s_menu = menu_layer_create_fullscreen(s_window);
+  Layer* root_layer = window_get_root_layer(s_window);
+  GRect bounds = layer_get_bounds(root_layer);
+
+  s_status_bar = status_bar_layer_create();
+  status_bar_layer_set_colors(s_status_bar, GColorWhite, GColorBlack);
+  status_bar_layer_set_separator_mode(s_status_bar, StatusBarLayerSeparatorModeDotted);
+  layer_set_frame(status_bar_layer_get_layer(s_status_bar), GRect(0, 0, bounds.size.w, STATUS_HEIGHT));
+  layer_add_child(root_layer, status_bar_layer_get_layer(s_status_bar));
+
+  s_menu = menu_layer_create(GRect(0, STATUS_HEIGHT, bounds.size.w, bounds.size.h - STATUS_HEIGHT));
   menu_layer_set_callbacks(s_menu, NULL, (MenuLayerCallbacks) {
     .get_num_sections = menu_num_sections,
     .get_num_rows = menu_num_rows,
@@ -118,26 +126,24 @@ static void window_load(Window* window) {
 
 static void window_unload(Window* window) {
   menu_layer_destroy(s_menu);
-}
-
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  if (settings()->show_clock) {
-    menu_layer_reload_data(s_menu);
-  }
+  status_bar_layer_destroy(s_status_bar);
 }
 
 static uint16_t menu_num_sections(struct MenuLayer* menu, void* callback_context) {
-  return 3;
+  return 5;
 }
 
 static uint16_t menu_num_rows(struct MenuLayer* menu, uint16_t section_index, void* callback_context) {
   switch (section_index) {
-    case MENU_SECTION_CLOCK:
-      return settings()->show_clock ? 1 : 0;
+    case MENU_SECTION_ADD_TIMER:
+    case MENU_SECTION_ADD_STOPWATCH:
+      return 1;
     case MENU_SECTION_TIMERS:
-      return timers_count();
-    case MENU_SECTION_OTHER:
-      return MENU_ROW_COUNT_OTHER;
+      return timers_count_for_section(MENU_SECTION_TIMERS);
+    case MENU_SECTION_STOPWATCHES:
+      return timers_count_for_section(MENU_SECTION_STOPWATCHES);
+    case MENU_SECTION_SETTINGS:
+      return 1;
     default:
       return 0;
   }
@@ -145,8 +151,9 @@ static uint16_t menu_num_rows(struct MenuLayer* menu, uint16_t section_index, vo
 
 static int16_t menu_cell_height(struct MenuLayer *menu, MenuIndex *cell_index, void *callback_context) {
   switch (cell_index->section) {
+    case MENU_SECTION_STOPWATCHES:
     case MENU_SECTION_TIMERS: {
-      Timer* timer = timers_get(cell_index->row);
+      Timer* timer = timers_get(timers_index_for_section_row(cell_index->section, cell_index->row));
       if (! timer) {
         return 32;
       }
@@ -164,73 +171,60 @@ static int16_t menu_cell_height(struct MenuLayer *menu, MenuIndex *cell_index, v
 
 static void menu_draw_row(GContext* ctx, const Layer* cell_layer, MenuIndex* cell_index, void* callback_context) {
   switch (cell_index->section) {
-    case MENU_SECTION_CLOCK:
-      menu_draw_row_clock(ctx, cell_layer);
+    case MENU_SECTION_ADD_TIMER:
+      menu_draw_row_add_timer(ctx, cell_layer);
       break;
+    case MENU_SECTION_ADD_STOPWATCH:
+      menu_draw_row_add_stopwatch(ctx, cell_layer);
+      break;
+    case MENU_SECTION_STOPWATCHES:
     case MENU_SECTION_TIMERS:
-      menu_draw_row_timers(ctx, cell_layer, cell_index->row);
+      menu_draw_row_timers(ctx, cell_layer, cell_index->section, cell_index->row);
       break;
-    case MENU_SECTION_OTHER:
-      menu_draw_row_other(ctx, cell_layer, cell_index->row);
+    case MENU_SECTION_SETTINGS:
+      menu_draw_row_settings(ctx, cell_layer);
       break;
   }
 }
 
-static void menu_draw_row_clock(GContext* ctx, const Layer* cell_layer) {
-  char time_str[10];
-  clock_copy_time_string(time_str, 10);
-  bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
-
-  graphics_context_set_text_color(ctx, highlighted ? GColorWhite : GColorBlack);
-  graphics_draw_text(ctx, time_str,
-    fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
-    GRect(33, -3, PEBBLE_WIDTH - 33, 28), GTextOverflowModeFill,
-    GTextAlignmentLeft, NULL);
-  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-  graphics_draw_bitmap_in_rect(ctx, icon_get_bitmap(ICON_RECT_CLOCK, highlighted), GRect(8, 8, 16, 16));
-  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-}
-
-static void menu_draw_row_timers(GContext* ctx, const Layer* cell_layer, uint16_t row_index) {
-  Timer* timer = timers_get(row_index);
+static void menu_draw_row_timers(GContext* ctx, const Layer* cell_layer, uint16_t section_index, uint16_t row_index) {
+  Timer* timer = timers_get(timers_index_for_section_row(section_index, row_index));
   if (! timer) { return; }
   timer_draw_row(timer, ctx, menu_cell_layer_is_highlighted(cell_layer));
 }
 
-static void menu_draw_row_other(GContext* ctx, const Layer* cell_layer, uint16_t row_index) {
-  bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
-  switch (row_index) {
-    case MENU_ROW_OTHER_ADD_TIMER:
-      menu_draw_row_icon_text(ctx, "Timer", ICON_RECT_ADD, highlighted);
-      break;
-    case MENU_ROW_OTHER_ADD_STOPWATCH:
-      menu_draw_row_icon_text(ctx, "Stopwatch", ICON_RECT_ADD, highlighted);
-      break;
-    case MENU_ROW_OTHER_CONTROLS:
-      menu_draw_row_icon_text(ctx, "Controls", ICON_RECT_CONTROLS, highlighted);
-      break;
-    case MENU_ROW_OTHER_SETTINGS:
-      menu_draw_row_icon_text(ctx, "Settings", ICON_RECT_SETTINGS, highlighted);
-      break;
-    case MENU_ROW_OTHER_ABOUT:
-      menu_draw_row_icon_text(ctx, "About", ICON_RECT_ABOUT, highlighted);
-      break;
-  }
+static void menu_draw_row_add_timer(GContext* ctx, const Layer* cell_layer) {
+  menu_draw_row_icon_text(ctx, "Timer", ICON_RECT_ADD, menu_cell_layer_is_highlighted(cell_layer));
+}
+
+static void menu_draw_row_add_stopwatch(GContext* ctx, const Layer* cell_layer) {
+  menu_draw_row_icon_text(ctx, "Stopwatch", ICON_RECT_ADD, menu_cell_layer_is_highlighted(cell_layer));
+}
+
+static void menu_draw_row_settings(GContext* ctx, const Layer* cell_layer) {
+  menu_draw_row_icon_text(ctx, "Settings", ICON_RECT_SETTINGS, menu_cell_layer_is_highlighted(cell_layer));
 }
 
 static void menu_select(struct MenuLayer* menu, MenuIndex* cell_index, void* callback_context) {
   switch (cell_index->section) {
+    case MENU_SECTION_STOPWATCHES:
     case MENU_SECTION_TIMERS:
-      menu_select_timers(cell_index->row);
+      menu_select_timers(cell_index->section, cell_index->row);
       break;
-    case MENU_SECTION_OTHER:
-      menu_select_other(cell_index->row);
+    case MENU_SECTION_ADD_TIMER:
+      win_timer_add_show_new();
+      break;
+    case MENU_SECTION_ADD_STOPWATCH:
+      menu_select_add_stopwatch();
+      break;
+    case MENU_SECTION_SETTINGS:
+      win_settings_show();
       break;
   }
 }
 
-static void menu_select_timers(uint16_t row_index) {
-  Timer* timer = timers_get(row_index);
+static void menu_select_timers(uint16_t section_index, uint16_t row_index) {
+  Timer* timer = timers_get(timers_index_for_section_row(section_index, row_index));
   if (! timer) { return; }
 
   switch (timer->status) {
@@ -250,36 +244,19 @@ static void menu_select_timers(uint16_t row_index) {
   }
 }
 
-static void menu_select_other(uint16_t row_index) {
-  switch (row_index) {
-    case MENU_ROW_OTHER_ADD_TIMER:
-      win_timer_add_show_new();
-      break;
-    case MENU_ROW_OTHER_ADD_STOPWATCH: {
-      Timer* stopwatch = timer_create_stopwatch();
-      if (settings()->timers_start_auto) {
-        timer_start(stopwatch);
-      }
-      timers_add(stopwatch);
-      timers_mark_updated();
-      timers_highlight(stopwatch);
-      break;
-    }
-    case MENU_ROW_OTHER_ABOUT:
-      win_about_show();
-      break;
-    case MENU_ROW_OTHER_CONTROLS:
-      win_controls_show();
-      break;
-    case MENU_ROW_OTHER_SETTINGS:
-      win_settings_show();
-      break;
+static void menu_select_add_stopwatch(void) {
+  Timer* stopwatch = timer_create_stopwatch();
+  if (settings()->timers_start_auto) {
+    timer_start(stopwatch);
   }
+  timers_add(stopwatch);
+  timers_mark_updated();
+  timers_highlight(stopwatch);
 }
 
 static void menu_select_long(struct MenuLayer* menu, MenuIndex* cell_index, void* callback_context) {
-  if (cell_index->section == MENU_SECTION_TIMERS) {
-    Timer* timer = timers_get(cell_index->row);
+  if (cell_index->section == MENU_SECTION_STOPWATCHES || cell_index->section == MENU_SECTION_TIMERS) {
+    Timer* timer = timers_get(timers_index_for_section_row(cell_index->section, cell_index->row));
     win_timer_set_timer(timer);
     win_timer_show();
   }
@@ -290,6 +267,61 @@ static void timers_update_handler(void) {
 }
 
 static void timer_highlight_handler(Timer* timer) {
-  uint16_t index = timers_index_of(timer->id);
-  menu_layer_set_selected_index(s_menu, (MenuIndex) { .section = 1, .row = index }, MenuRowAlignCenter, true);
+  menu_layer_set_selected_index(s_menu, menu_index_for_timer(timer), MenuRowAlignCenter, true);
+}
+
+static uint8_t timers_count_for_section(uint16_t section_index) {
+  uint8_t count = 0;
+  for (uint8_t i = 0; i < timers_count(); i += 1) {
+    if (timer_is_in_section(timers_get(i), section_index)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+static int16_t timers_index_for_section_row(uint16_t section_index, uint16_t row_index) {
+  uint8_t row = 0;
+  for (uint8_t i = 0; i < timers_count(); i += 1) {
+    if (timer_is_in_section(timers_get(i), section_index)) {
+      if (row == row_index) {
+        return i;
+      }
+      row += 1;
+    }
+  }
+  return -1;
+}
+
+static bool timer_is_in_section(Timer* timer, uint16_t section_index) {
+  if (! timer) {
+    return false;
+  }
+  switch (section_index) {
+    case MENU_SECTION_STOPWATCHES:
+      return timer_is_stopwatch(timer);
+    case MENU_SECTION_TIMERS:
+      return ! timer_is_stopwatch(timer);
+  }
+  return false;
+}
+
+static bool timer_is_stopwatch(Timer* timer) {
+  return timer->type == TIMER_TYPE_STOPWATCH;
+}
+
+static MenuIndex menu_index_for_timer(Timer* timer) {
+  MenuIndex index = (MenuIndex) { .section = MENU_SECTION_TIMERS, .row = 0 };
+  int16_t timer_index = timers_index_of(timer->id);
+  if (timer_index < 0) {
+    return index;
+  }
+  index.section = timer_is_stopwatch(timer) ? MENU_SECTION_STOPWATCHES : MENU_SECTION_TIMERS;
+  index.row = 0;
+  for (uint8_t i = 0; i < timer_index; i += 1) {
+    if (timer_is_in_section(timers_get(i), index.section)) {
+      index.row += 1;
+    }
+  }
+  return index;
 }
