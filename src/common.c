@@ -69,18 +69,23 @@ static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_
   GBitmap* bmp_icon = NULL;
   GBitmap* bmp_direction = NULL;
 
-  switch (timer->status) {
-    case TIMER_STATUS_STOPPED:
-      break;
-    case TIMER_STATUS_RUNNING:
-      bmp_icon = icon_get_bitmap(ICON_RECT_PLAY, highlighted);
-      break;
-    case TIMER_STATUS_PAUSED:
-      bmp_icon = icon_get_bitmap(ICON_RECT_PAUSE, highlighted);
-      break;
-    case TIMER_STATUS_DONE:
-      bmp_icon = icon_get_bitmap(ICON_RECT_DONE, highlighted);
-      break;
+  if (timer_completion_blink_visible(timer)) {
+    bmp_icon = icon_get_bitmap(ICON_RECT_DONE, highlighted);
+  }
+  else {
+    switch (timer->status) {
+      case TIMER_STATUS_STOPPED:
+        break;
+      case TIMER_STATUS_RUNNING:
+        bmp_icon = icon_get_bitmap(ICON_RECT_PLAY, highlighted);
+        break;
+      case TIMER_STATUS_PAUSED:
+        bmp_icon = icon_get_bitmap(ICON_RECT_PAUSE, highlighted);
+        break;
+      case TIMER_STATUS_DONE:
+        bmp_icon = icon_get_bitmap(ICON_RECT_DONE, highlighted);
+        break;
+    }
   }
 
   graphics_context_set_compositing_mode(ctx, GCompOpAssign);

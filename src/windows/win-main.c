@@ -57,6 +57,8 @@ src/windows/win-main.c
 
 #define MENU_ROW_SETTINGS            0
 
+#define COMPLETION_BLINK_REFRESH_MS 500
+
 static void window_load(Window* window);
 static void window_unload(Window* window);
 static uint16_t menu_num_sections(struct MenuLayer* menu, void* callback_context);
@@ -78,6 +80,8 @@ static void delete_confirm_action(ActionMenu* action_menu, const ActionMenuItem*
 static void action_menu_did_close(ActionMenu* menu, const ActionMenuItem* performed_action, void* context);
 static void timers_update_handler(void);
 static void timer_highlight_handler(Timer* timer);
+static void blink_refresh_callback(void* context);
+static void update_blink_refresh_timer(void);
 static uint8_t timers_count_for_section(uint16_t section_index);
 static int16_t timers_index_for_section_row(uint16_t section_index, uint16_t row_index);
 static int16_t sorted_timer_index_for_row(uint16_t row_index);
@@ -93,6 +97,7 @@ static MenuIndex menu_index_for_timer(Timer* timer);
 static Window*    s_window;
 static MenuLayer* s_menu;
 static StatusBarLayer* s_status_bar;
+static AppTimer*  s_blink_refresh_timer;
 static bool       s_pending_confirm_delete;
 static bool       s_pending_confirm_stopwatches;
 
@@ -137,9 +142,14 @@ static void window_load(Window* window) {
     .select_long_click = menu_select_long,
   });
   menu_layer_add_to_window(s_menu, s_window);
+  update_blink_refresh_timer();
 }
 
 static void window_unload(Window* window) {
+  if (s_blink_refresh_timer) {
+    app_timer_cancel(s_blink_refresh_timer);
+    s_blink_refresh_timer = NULL;
+  }
   menu_layer_destroy(s_menu);
   status_bar_layer_destroy(s_status_bar);
 }
@@ -242,6 +252,11 @@ static void menu_select_timers(uint16_t section_index, uint16_t row_index) {
   Timer* timer = timers_get(timers_index_for_section_row(section_index, row_index));
   if (! timer) { return; }
 
+  if (timer_completion_blink_active(timer)) {
+    timer_reset(timer);
+    return;
+  }
+
   switch (timer->status) {
     case TIMER_STATUS_STOPPED: {
       timer_start(timer);
@@ -322,11 +337,34 @@ static void action_menu_did_close(ActionMenu* menu, const ActionMenuItem* perfor
 }
 
 static void timers_update_handler(void) {
+  if (! window_is_loaded(s_window)) {
+    return;
+  }
   menu_layer_reload_data(s_menu);
+  update_blink_refresh_timer();
 }
 
 static void timer_highlight_handler(Timer* timer) {
+  if (! window_is_loaded(s_window)) {
+    return;
+  }
   menu_layer_set_selected_index(s_menu, menu_index_for_timer(timer), MenuRowAlignCenter, true);
+}
+
+static void blink_refresh_callback(void* context) {
+  s_blink_refresh_timer = NULL;
+  if (! window_is_loaded(s_window)) {
+    return;
+  }
+  menu_layer_reload_data(s_menu);
+  update_blink_refresh_timer();
+}
+
+static void update_blink_refresh_timer(void) {
+  if (s_blink_refresh_timer || ! timer_any_completion_blink_active()) {
+    return;
+  }
+  s_blink_refresh_timer = app_timer_register(COMPLETION_BLINK_REFRESH_MS, blink_refresh_callback, NULL);
 }
 
 static uint8_t timers_count_for_section(uint16_t section_index) {

@@ -78,3 +78,7 @@ Timer* timer_clone(Timer* timer);
 char* timer_vibe_str(TimerVibration vibe, bool shortStr);
 Timer* timer_create_timer(void);
 Timer* timer_create_stopwatch(void);
+bool timer_completion_blink_active(Timer* timer);
+bool timer_completion_blink_visible(Timer* timer);
+bool timer_any_completion_blink_active(void);
+void timer_completion_blink_clear(Timer* timer);

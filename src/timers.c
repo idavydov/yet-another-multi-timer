@@ -103,6 +103,7 @@ bool timers_remove(uint8_t position) {
   if (NULL == timer) {
     return false;
   }
+  timer_completion_blink_clear(timer);
   timer_pause(timer);
   linked_list_remove(timers, position);
   free(timer);
@@ -155,6 +156,7 @@ void timers_clear(void) {
   while (linked_list_count(timers) > 0) {
     Timer* timer = (Timer*) linked_list_get(timers, 0);
     linked_list_remove(timers, 0);
+    timer_completion_blink_clear(timer);
     timer_pause(timer);
     free(timer);
   }
