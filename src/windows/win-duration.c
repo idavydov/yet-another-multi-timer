@@ -31,6 +31,7 @@ src/windows/win-duration.c
 
 #include <pebble.h>
 
+#include <pebble-assist.h>
 #include <selection_layer.h>
 
 #include "win-duration.h"
@@ -142,7 +143,9 @@ static void window_load(Window* window) {
   layer_add_child(root, s_selection_layer);
 
   s_status_bar = status_bar_layer_create();
-  status_bar_layer_set_colors(s_status_bar, GColorClear, GColorBlack);
+  status_bar_layer_set_colors(s_status_bar, GColorWhite, GColorBlack);
+  status_bar_layer_set_separator_mode(s_status_bar, StatusBarLayerSeparatorModeDotted);
+  layer_set_frame(status_bar_layer_get_layer(s_status_bar), GRect(0, 0, bounds.size.w, STATUS_HEIGHT));
   layer_add_child(root, status_bar_layer_get_layer(s_status_bar));
 
   update_sub_text();
