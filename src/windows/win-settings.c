@@ -143,7 +143,7 @@ static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuI
 static void menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, uint16_t section_index , void *data) {
   switch (section_index) {
     case MENU_SECTION_TIMERS:
-      menu_cell_basic_header_draw(ctx, cell_layer, "Timer Defaults");
+      menu_cell_basic_header_draw(ctx, cell_layer, "Timer Settings");
     break;
   }
 }
