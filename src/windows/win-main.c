@@ -59,6 +59,8 @@ src/windows/win-main.c
 
 static void window_load(Window* window);
 static void window_unload(Window* window);
+static void confirm_window_load(Window* window);
+static void confirm_window_unload(Window* window);
 static uint16_t menu_num_sections(struct MenuLayer* menu, void* callback_context);
 static uint16_t menu_num_rows(struct MenuLayer* menu, uint16_t section_index, void* callback_context);
 static int16_t menu_cell_height(struct MenuLayer *menu, MenuIndex *cell_index, void *callback_context);
@@ -71,12 +73,19 @@ static void menu_select(struct MenuLayer* menu, MenuIndex* cell_index, void* cal
 static void menu_select_timers(uint16_t section_index, uint16_t row_index);
 static void menu_select_add_stopwatch(void);
 static void menu_select_long(struct MenuLayer* menu, MenuIndex* cell_index, void* callback_context);
+static uint16_t confirm_menu_num_sections(MenuLayer* menu, void* callback_context);
+static uint16_t confirm_menu_num_rows(MenuLayer* menu, uint16_t section_index, void* callback_context);
+static int16_t confirm_menu_header_height(MenuLayer* menu, uint16_t section_index, void* callback_context);
+static void confirm_menu_draw_header(GContext* ctx, const Layer* cell_layer, uint16_t section_index, void* callback_context);
+static void confirm_menu_draw_row(GContext* ctx, const Layer* cell_layer, MenuIndex* cell_index, void* callback_context);
+static void confirm_menu_select(MenuLayer* menu, MenuIndex* cell_index, void* callback_context);
 static void timers_update_handler(void);
 static void timer_highlight_handler(Timer* timer);
 static uint8_t timers_count_for_section(uint16_t section_index);
 static int16_t timers_index_for_section_row(uint16_t section_index, uint16_t row_index);
 static int16_t sorted_timer_index_for_row(uint16_t row_index);
 static uint16_t timer_row_for_index(uint16_t timer_index, uint16_t section_index);
+static uint8_t delete_all_matching(bool stopwatches);
 static bool timer_is_in_section(Timer* timer, uint16_t section_index);
 static bool timer_is_stopwatch(Timer* timer);
 static MenuIndex menu_index_for_timer(Timer* timer);
@@ -84,12 +93,20 @@ static MenuIndex menu_index_for_timer(Timer* timer);
 static Window*    s_window;
 static MenuLayer* s_menu;
 static StatusBarLayer* s_status_bar;
+static Window*    s_confirm_window;
+static MenuLayer* s_confirm_menu;
+static bool       s_confirm_stopwatches;
 
 void win_main_init(void) {
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = window_load,
     .unload = window_unload
+  });
+  s_confirm_window = window_create();
+  window_set_window_handlers(s_confirm_window, (WindowHandlers) {
+    .load = confirm_window_load,
+    .unload = confirm_window_unload
   });
   timers_register_update_handler(timers_update_handler);
   timers_register_highlight_handler(timer_highlight_handler);
@@ -131,6 +148,25 @@ static void window_load(Window* window) {
 static void window_unload(Window* window) {
   menu_layer_destroy(s_menu);
   status_bar_layer_destroy(s_status_bar);
+}
+
+static void confirm_window_load(Window* window) {
+  s_confirm_menu = menu_layer_create_fullscreen(window);
+  menu_layer_set_callbacks(s_confirm_menu, NULL, (MenuLayerCallbacks) {
+    .get_num_sections = confirm_menu_num_sections,
+    .get_num_rows = confirm_menu_num_rows,
+    .get_header_height = confirm_menu_header_height,
+    .draw_header = confirm_menu_draw_header,
+    .draw_row = confirm_menu_draw_row,
+    .select_click = confirm_menu_select,
+  });
+  menu_layer_set_click_config_onto_window(s_confirm_menu, window);
+  menu_layer_set_selected_index(s_confirm_menu, (MenuIndex) { .section = 0, .row = 0 }, MenuRowAlignCenter, false);
+  layer_add_child(window_get_root_layer(window), menu_layer_get_layer(s_confirm_menu));
+}
+
+static void confirm_window_unload(Window* window) {
+  menu_layer_destroy(s_confirm_menu);
 }
 
 static uint16_t menu_num_sections(struct MenuLayer* menu, void* callback_context) {
@@ -259,10 +295,59 @@ static void menu_select_add_stopwatch(void) {
 }
 
 static void menu_select_long(struct MenuLayer* menu, MenuIndex* cell_index, void* callback_context) {
+  if (cell_index->section == MENU_SECTION_ADD_TIMER || cell_index->section == MENU_SECTION_ADD_STOPWATCH) {
+    s_confirm_stopwatches = cell_index->section == MENU_SECTION_ADD_STOPWATCH;
+    uint16_t section_to_delete = s_confirm_stopwatches ? MENU_SECTION_STOPWATCHES : MENU_SECTION_TIMERS;
+    if (timers_count_for_section(section_to_delete) > 0) {
+      window_stack_push(s_confirm_window, true);
+    }
+    else {
+      vibes_short_pulse();
+    }
+    return;
+  }
   if (cell_index->section == MENU_SECTION_STOPWATCHES || cell_index->section == MENU_SECTION_TIMERS) {
     Timer* timer = timers_get(timers_index_for_section_row(cell_index->section, cell_index->row));
     win_timer_set_timer(timer);
     win_timer_show();
+  }
+}
+
+static uint16_t confirm_menu_num_sections(MenuLayer* menu, void* callback_context) {
+  return 1;
+}
+
+static uint16_t confirm_menu_num_rows(MenuLayer* menu, uint16_t section_index, void* callback_context) {
+  return 2;
+}
+
+static int16_t confirm_menu_header_height(MenuLayer* menu, uint16_t section_index, void* callback_context) {
+  return MENU_CELL_BASIC_HEADER_HEIGHT;
+}
+
+static void confirm_menu_draw_header(GContext* ctx, const Layer* cell_layer, uint16_t section_index, void* callback_context) {
+  menu_cell_basic_header_draw(ctx, cell_layer, s_confirm_stopwatches ? "Delete stopwatches?" : "Delete timers?");
+}
+
+static void confirm_menu_draw_row(GContext* ctx, const Layer* cell_layer, MenuIndex* cell_index, void* callback_context) {
+  bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
+  graphics_context_set_text_color(ctx, highlighted ? GColorWhite : GColorBlack);
+  graphics_draw_text(ctx, cell_index->row == 0 ? "No" : "Yes",
+    fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD), GRect(4, 4, 136, 28),
+    GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+}
+
+static void confirm_menu_select(MenuLayer* menu, MenuIndex* cell_index, void* callback_context) {
+  if (cell_index->row == 0) {
+    window_stack_pop(true);
+    return;
+  }
+
+  uint8_t deleted = delete_all_matching(s_confirm_stopwatches);
+  window_stack_pop(false);
+  if (deleted > 0) {
+    timers_mark_updated();
+    win_deleted_show();
   }
 }
 
@@ -354,6 +439,20 @@ static uint16_t timer_row_for_index(uint16_t timer_index, uint16_t section_index
     }
   }
   return row;
+}
+
+static uint8_t delete_all_matching(bool stopwatches) {
+  uint8_t deleted = 0;
+  int16_t index = timers_count() - 1;
+  while (index >= 0) {
+    Timer* timer = timers_get(index);
+    if (timer && timer_is_stopwatch(timer) == stopwatches) {
+      timers_remove(index);
+      deleted += 1;
+    }
+    index -= 1;
+  }
+  return deleted;
 }
 
 static bool timer_is_in_section(Timer* timer, uint16_t section_index) {
