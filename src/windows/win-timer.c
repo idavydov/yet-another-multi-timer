@@ -176,7 +176,7 @@ static void menu_select(struct MenuLayer* menu, MenuIndex* cell_index, void* cal
     case MENU_ROW_DELETE:
       timers_remove(timers_index_of(s_timer->id));
       window_stack_pop(false);
-      win_deleted_show();
+      win_deleted_show("Timer Deleted");
       break;
     case MENU_ROW_EDIT:
       win_timer_add_show_edit(s_timer);

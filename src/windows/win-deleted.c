@@ -19,6 +19,7 @@ static TextLayer* s_text_layer;
 static AppTimer* s_timer;
 static int64_t s_started_ms;
 static int64_t s_duration_ms;
+static const char* s_text = "Timer Deleted";
 
 #ifndef PBL_PLATFORM_APLITE
 static GDrawCommandSequence* s_sequence;
@@ -37,10 +38,16 @@ void win_deleted_init(void) {
   });
 }
 
-void win_deleted_show(void) {
+void win_deleted_show(const char* text) {
+  s_text = text ? text : "Timer Deleted";
   s_started_ms = current_time_ms();
   if (! window_stack_contains_window(s_window)) {
     window_stack_push(s_window, true);
+  }
+  if (s_text_layer) {
+    text_layer_set_text(s_text_layer, s_text);
+    text_layer_set_font(s_text_layer, fonts_get_system_font(
+      strlen(s_text) > 14 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));
   }
   schedule_refresh();
 }
@@ -49,11 +56,12 @@ static void window_load(Window* window) {
   Layer* root = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(root);
 
-  s_text_layer = text_layer_create(GRect(0, 14, bounds.size.w, 28));
+  s_text_layer = text_layer_create(GRect(0, 10, bounds.size.w, 36));
   text_layer_set_background_color(s_text_layer, GColorClear);
   text_layer_set_text_color(s_text_layer, GColorBlack);
-  text_layer_set_text(s_text_layer, "Timer Deleted");
-  text_layer_set_font(s_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_text(s_text_layer, s_text);
+  text_layer_set_font(s_text_layer, fonts_get_system_font(
+    strlen(s_text) > 14 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));
   text_layer_set_text_alignment(s_text_layer, GTextAlignmentCenter);
   layer_add_child(root, text_layer_get_layer(s_text_layer));
 
