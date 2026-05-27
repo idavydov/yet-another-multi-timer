@@ -67,7 +67,6 @@ static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_
     GTextAlignmentLeft, NULL);
 
   GBitmap* bmp_icon = NULL;
-  GBitmap* bmp_direction = NULL;
 
   if (timer_completion_blink_visible(timer)) {
     bmp_icon = icon_get_bitmap(ICON_RECT_DONE, highlighted);
@@ -94,23 +93,10 @@ static void timer_draw_row_with_colors(Timer* timer, GContext* ctx, GColor text_
     graphics_draw_bitmap_in_rect(ctx, bmp_icon, GRect(8, 8, 16, 16));
   }
 
-  switch (timer->type) {
-    case TIMER_TYPE_TIMER:
-      bmp_direction = icon_get_bitmap(ICON_RECT_TIMER, highlighted);
-      break;
-    case TIMER_TYPE_STOPWATCH:
-      bmp_direction = icon_get_bitmap(ICON_RECT_STOPWATCH, highlighted);
-      break;
-  }
-
-  if (bmp_direction) {
-    graphics_draw_bitmap_in_rect(ctx, bmp_direction, GRect(PEBBLE_WIDTH - 8 - 8, 9, 8, 16));
-  }
-
   graphics_context_set_compositing_mode(ctx, GCompOpAssign);
 
-  if (timer->type == TIMER_TYPE_TIMER) {
-    uint8_t width = (144 * timer->current_time) / timer->length;
+  if (timer->type == TIMER_TYPE_TIMER && timer->status == TIMER_STATUS_RUNNING && timer->length > 0) {
+    uint8_t width = (PEBBLE_WIDTH * timer->current_time) / timer->length;
     graphics_fill_rect(ctx, GRect(0, 31, width, 2), 0, GCornerNone);
   }
 
