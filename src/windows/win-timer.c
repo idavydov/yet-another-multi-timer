@@ -174,9 +174,10 @@ static void menu_select(struct MenuLayer* menu, MenuIndex* cell_index, void* cal
       timer_reset(s_timer);
       break;
     case MENU_ROW_DELETE:
+      bool is_stopwatch = s_timer->type == TIMER_TYPE_STOPWATCH;
       timers_remove(timers_index_of(s_timer->id));
       window_stack_pop(false);
-      win_deleted_show("Timer Deleted");
+      win_deleted_show(is_stopwatch ? "Stopwatch Deleted" : "Timer Deleted");
       break;
     case MENU_ROW_EDIT:
       win_timer_add_show_edit(s_timer);
