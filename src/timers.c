@@ -299,7 +299,8 @@ static void timers_migrate_1(void) {
     timer->id = old_timer->id;
     timer->current_time = old_timer->time_left;
     timer->length = old_timer->length;
-    timer->repeat = old_timer->repeat ? TIMER_REPEAT_INFINITE : 0;
+    timer->repeat = 0;
+    timer->repeat_count = 0;
     switch (old_timer->status) {
       case OLD_TIMER_STATUS_STOPPED:
         timer->status = TIMER_STATUS_STOPPED;
@@ -384,8 +385,8 @@ static void timers_migrate_2(void) {
     timer->id = timer_tiny->id;
     timer->current_time = timer_tiny->current_time;
     timer->length = timer_tiny->length;
-    timer->repeat = timer_tiny->repeat;
-    timer->repeat_count = timer_tiny->repeat_count;
+    timer->repeat = 0;
+    timer->repeat_count = 0;
     timer->status = timer_tiny->status;
     timer->vibration = timer_tiny->vibration;
     timer->type = timer_tiny->type;

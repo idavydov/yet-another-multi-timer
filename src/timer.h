@@ -68,8 +68,6 @@ typedef struct Timer {
   char label[24];
 } Timer;
 
-#define TIMER_REPEAT_INFINITE 100
-
 void timer_time_str(uint32_t timer_time, bool showHours, char* str, int str_len);
 void timer_start(Timer* timer);
 void timer_pause(Timer* timer);

@@ -33,7 +33,6 @@ src/windows/win-timer-add.c
 
 #include <pebble-assist.h>
 
-#include "win-vibration.h"
 #include "win-duration.h"
 #include "../timers.h"
 #include "../timer.h"
@@ -44,8 +43,6 @@ src/windows/win-timer-add.c
 #define MENU_SECTION_FOOTER 1
 
 #define MENU_ROW_DURATION   0
-#define MENU_ROW_VIBRATION  1
-#define MENU_ROW_REPEAT     2
 
 static void window_load(Window* window);
 static void window_unload(Window* window);
@@ -59,7 +56,6 @@ static void menu_draw_row_main(GContext* ctx, uint16_t row, bool highlighted);
 static void menu_select_click_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context);
 static void menu_select_main(uint16_t row);
 static void menu_select_footer(void);
-static void vibration_callback(TimerVibration vibration);
 static void duration_callback(uint32_t duration);
 static void new_timer_duration_callback(uint32_t duration);
 static void edit_timer_duration_callback(uint32_t duration);
@@ -122,7 +118,7 @@ static uint16_t menu_get_num_sections_callback(MenuLayer *me, void *data) {
 static uint16_t menu_get_num_rows_callback(MenuLayer *me, uint16_t section_index, void *data) {
   switch (section_index) {
     case MENU_SECTION_MAIN:
-      return 3;
+      return 1;
     case MENU_SECTION_FOOTER:
       return 1;
   }
@@ -171,14 +167,6 @@ static void menu_draw_row_main(GContext* ctx, uint16_t row, bool highlighted) {
       timer_time_str(s_timer->length, settings()->timers_hours, tmp, sizeof(tmp));
       menu_draw_option(ctx, "Duration", tmp, highlighted);
       break;
-    case MENU_ROW_VIBRATION:
-      strcpy(tmp, timer_vibe_str(s_timer->vibration, true));
-      uppercase(tmp);
-      menu_draw_option(ctx, "Vibration", tmp, highlighted);
-      break;
-    case MENU_ROW_REPEAT:
-      menu_draw_option(ctx, "Repeat", (s_timer->repeat == TIMER_REPEAT_INFINITE) ? "ON" : "OFF", highlighted);
-      break;
   }
 }
 
@@ -198,18 +186,6 @@ static void menu_select_main(uint16_t row) {
     case MENU_ROW_DURATION:
       win_duration_show(s_timer->length, duration_callback);
     break;
-    case MENU_ROW_VIBRATION:
-      win_vibration_show(vibration_callback, s_timer->vibration);
-    break;
-    case MENU_ROW_REPEAT:
-      if (s_timer->repeat == TIMER_REPEAT_INFINITE) {
-        s_timer->repeat = 0;
-      }
-      else {
-        s_timer->repeat = TIMER_REPEAT_INFINITE;
-      }
-      menu_layer_reload_data(s_menu);
-    break;
   }
 }
 
@@ -222,8 +198,6 @@ static void menu_select_footer(void) {
   if (s_mode_edit) {
     Timer* timer = timers_find(s_timer->id);
     timer->length = s_timer->length;
-    timer->repeat = s_timer->repeat;
-    timer->vibration = s_timer->vibration;
     timer->type = s_timer->type;
     timer_reset(timer);
     window_stack_pop(true);
@@ -240,10 +214,6 @@ static void menu_select_footer(void) {
     timers_mark_updated();
     timers_highlight(timer);
   }
-}
-
-static void vibration_callback(TimerVibration vibration) {
-  s_timer->vibration = vibration;
 }
 
 static void duration_callback(uint32_t duration) {

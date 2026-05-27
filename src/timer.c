@@ -159,6 +159,7 @@ Timer* timer_create_timer(void) {
   timer->wakeup_id = -1;
   timer->timer = NULL;
   timer->repeat = 0;
+  timer->repeat_count = 0;
   timer->label[0] = 0;
   timer->status = TIMER_STATUS_STOPPED;
   timer_set_id(timer);
@@ -298,7 +299,7 @@ static void timer_set_id(Timer* timer) {
 }
 
 static void timer_completed_action(Timer* timer) {
-  switch (timer->vibration) {
+  switch (settings()->timers_vibration) {
     case TIMER_VIBE_NONE:
       // Do nothing!
       break;
@@ -331,9 +332,6 @@ static void timer_completed_action(Timer* timer) {
       break;
     default:
       break;
-  }
-  if (timer->repeat == TIMER_REPEAT_INFINITE) {
-    timer_start(timer);
   }
   timers_highlight(timer);
 }
