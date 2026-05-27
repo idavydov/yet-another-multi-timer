@@ -32,10 +32,7 @@ src/windows/win-main.c
 #include <pebble.h>
 
 #include <pebble-assist.h>
-#include <bitmap-loader.h>
 
-#include "win-about.h"
-#include "win-controls.h"
 #include "win-timer-add.h"
 #include "win-timer.h"
 #include "win-settings.h"
@@ -109,7 +106,6 @@ void win_main_init(void) {
   });
   timers_register_update_handler(timers_update_handler);
   timers_register_highlight_handler(timer_highlight_handler);
-  win_timer_add_init();
   win_timer_init();
   win_settings_init();
   win_vibration_init();
