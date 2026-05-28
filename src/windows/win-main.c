@@ -58,6 +58,15 @@ src/windows/win-main.c
 
 static void window_load(Window* window);
 static void window_unload(Window* window);
+static void confirm_window_load(Window* window);
+static void confirm_window_unload(Window* window);
+static void confirm_layer_update(Layer* layer, GContext* ctx);
+static void confirm_action_layer_update(Layer* layer, GContext* ctx);
+static void confirm_click_config_provider(void* context);
+static void confirm_up_click_handler(ClickRecognizerRef recognizer, void* context);
+static void confirm_select_click_handler(ClickRecognizerRef recognizer, void* context);
+static void confirm_down_click_handler(ClickRecognizerRef recognizer, void* context);
+static void confirm_back_click_handler(ClickRecognizerRef recognizer, void* context);
 static uint16_t menu_num_sections(struct MenuLayer* menu, void* callback_context);
 static uint16_t menu_num_rows(struct MenuLayer* menu, uint16_t section_index, void* callback_context);
 static int16_t menu_cell_height(struct MenuLayer *menu, MenuIndex *cell_index, void *callback_context);
@@ -73,8 +82,6 @@ static void menu_select_long(struct MenuLayer* menu, MenuIndex* cell_index, void
 static void bulk_reset_action(ActionMenu* action_menu, const ActionMenuItem* action, void* context);
 static void bulk_delete_action(ActionMenu* action_menu, const ActionMenuItem* action, void* context);
 static void bulk_menu_did_close(ActionMenu* menu, const ActionMenuItem* performed_action, void* context);
-static void delete_confirm_action(ActionMenu* action_menu, const ActionMenuItem* action, void* context);
-static void action_menu_did_close(ActionMenu* menu, const ActionMenuItem* performed_action, void* context);
 static void timers_update_handler(void);
 static void timer_highlight_handler(Timer* timer);
 static void blink_refresh_callback(void* context);
@@ -85,6 +92,9 @@ static int16_t sorted_timer_index_for_row(uint16_t row_index);
 static uint16_t timer_row_for_index(uint16_t timer_index, uint16_t section_index);
 static void show_bulk_action_menu(bool stopwatches);
 static void show_delete_confirm_menu(bool stopwatches);
+static void confirm_delete_all(void);
+static void dismiss_delete_confirm(void);
+static void draw_confirm_delete_icon(GContext* ctx, GRect frame);
 static uint8_t reset_all_matching(bool stopwatches);
 static uint8_t delete_all_matching(bool stopwatches);
 static bool timer_is_in_section(Timer* timer, uint16_t section_index);
@@ -95,8 +105,13 @@ static Window*    s_window;
 static MenuLayer* s_menu;
 static StatusBarLayer* s_status_bar;
 static AppTimer*  s_blink_refresh_timer;
+static Window*    s_confirm_window;
+static Layer*     s_confirm_layer;
+static Layer*     s_confirm_action_layer;
+static ActionBarLayer* s_confirm_action_bar;
 static bool       s_pending_confirm_delete;
 static bool       s_pending_confirm_stopwatches;
+static bool       s_confirm_stopwatches;
 
 void win_main_init(void) {
   s_window = window_create();
@@ -112,6 +127,14 @@ void win_main_init(void) {
   win_duration_init();
   win_vibrate_init();
   win_deleted_init();
+
+  s_confirm_window = window_create();
+  window_set_background_color(s_confirm_window, GColorWhite);
+  window_set_click_config_provider(s_confirm_window, confirm_click_config_provider);
+  window_set_window_handlers(s_confirm_window, (WindowHandlers) {
+    .load = confirm_window_load,
+    .unload = confirm_window_unload
+  });
 }
 
 void win_main_show(void) {
@@ -148,6 +171,89 @@ static void window_unload(Window* window) {
   }
   menu_layer_destroy(s_menu);
   status_bar_layer_destroy(s_status_bar);
+}
+
+static void confirm_window_load(Window* window) {
+  Layer* root_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(root_layer);
+
+  s_confirm_layer = layer_create(bounds);
+  layer_set_update_proc(s_confirm_layer, confirm_layer_update);
+  layer_add_child(root_layer, s_confirm_layer);
+
+  s_confirm_action_bar = action_bar_layer_create();
+  action_bar_layer_set_click_config_provider(s_confirm_action_bar, confirm_click_config_provider);
+  action_bar_layer_add_to_window(s_confirm_action_bar, window);
+
+  s_confirm_action_layer = layer_create(GRect(bounds.size.w - ACTION_BAR_WIDTH, 0, ACTION_BAR_WIDTH, bounds.size.h));
+  layer_set_update_proc(s_confirm_action_layer, confirm_action_layer_update);
+  layer_add_child(root_layer, s_confirm_action_layer);
+}
+
+static void confirm_window_unload(Window* window) {
+  layer_destroy(s_confirm_action_layer);
+  action_bar_layer_destroy(s_confirm_action_bar);
+  layer_destroy(s_confirm_layer);
+
+  s_confirm_action_layer = NULL;
+  s_confirm_action_bar = NULL;
+  s_confirm_layer = NULL;
+}
+
+static void confirm_layer_update(Layer* layer, GContext* ctx) {
+  GRect bounds = layer_get_bounds(layer);
+  GRect content_bounds = GRect(0, 0, bounds.size.w - ACTION_BAR_WIDTH, bounds.size.h);
+
+  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+
+  graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_context_set_stroke_width(ctx, 3);
+  draw_confirm_delete_icon(ctx, GRect(34, 20, 48, 50));
+
+  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_draw_text(ctx,
+    s_confirm_stopwatches ? "Delete all\nstopwatches?" : "Delete all\ntimers?",
+    fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+    GRect(8, content_bounds.size.h - 48, content_bounds.size.w - 16, 44),
+    GTextOverflowModeTrailingEllipsis,
+    GTextAlignmentCenter,
+    NULL);
+}
+
+static void confirm_action_layer_update(Layer* layer, GContext* ctx) {
+  GRect bounds = layer_get_bounds(layer);
+
+  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_width(ctx, 3);
+
+  int16_t cx = bounds.size.w / 2;
+  int16_t y = bounds.size.h / 2;
+  graphics_draw_line(ctx, GPoint(cx - 7, y), GPoint(cx - 2, y + 5));
+  graphics_draw_line(ctx, GPoint(cx - 2, y + 5), GPoint(cx + 8, y - 6));
+}
+
+static void confirm_click_config_provider(void* context) {
+  window_single_click_subscribe(BUTTON_ID_UP, confirm_up_click_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, confirm_select_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, confirm_down_click_handler);
+  window_single_click_subscribe(BUTTON_ID_BACK, confirm_back_click_handler);
+}
+
+static void confirm_up_click_handler(ClickRecognizerRef recognizer, void* context) {
+  dismiss_delete_confirm();
+}
+
+static void confirm_select_click_handler(ClickRecognizerRef recognizer, void* context) {
+  confirm_delete_all();
+}
+
+static void confirm_down_click_handler(ClickRecognizerRef recognizer, void* context) {
+  dismiss_delete_confirm();
+}
+
+static void confirm_back_click_handler(ClickRecognizerRef recognizer, void* context) {
+  dismiss_delete_confirm();
 }
 
 static uint16_t menu_num_sections(struct MenuLayer* menu, void* callback_context) {
@@ -319,19 +425,6 @@ static void bulk_menu_did_close(ActionMenu* menu, const ActionMenuItem* performe
   }
 }
 
-static void delete_confirm_action(ActionMenu* action_menu, const ActionMenuItem* action, void* context) {
-  bool stopwatches = (bool)(uintptr_t)context;
-  uint8_t deleted = delete_all_matching(stopwatches);
-  if (deleted > 0) {
-    timers_mark_updated();
-    win_deleted_show(stopwatches ? "Stopwatches Deleted" : "Timers Deleted");
-  }
-}
-
-static void action_menu_did_close(ActionMenu* menu, const ActionMenuItem* performed_action, void* context) {
-  action_menu_hierarchy_destroy(action_menu_get_root_level(menu), NULL, NULL);
-}
-
 static void timers_update_handler(void) {
   if (! window_is_loaded(s_window)) {
     return;
@@ -462,19 +555,38 @@ static void show_bulk_action_menu(bool stopwatches) {
 }
 
 static void show_delete_confirm_menu(bool stopwatches) {
-  ActionMenuLevel* root = action_menu_level_create(2);
-  action_menu_level_add_action(root, "Cancel", NULL, NULL);
-  action_menu_level_add_action(root, "Delete All", delete_confirm_action, (void*)(uintptr_t)stopwatches);
-  action_menu_open(&(ActionMenuConfig) {
-    .root_level = root,
-    .context = (void*)(uintptr_t)stopwatches,
-    .colors = {
-      .background = GColorBlack,
-      .foreground = GColorWhite,
-    },
-    .did_close = action_menu_did_close,
-    .align = ActionMenuAlignCenter,
-  });
+  s_confirm_stopwatches = stopwatches;
+  window_stack_push(s_confirm_window, true);
+}
+
+static void confirm_delete_all(void) {
+  bool stopwatches = s_confirm_stopwatches;
+  uint8_t deleted = delete_all_matching(stopwatches);
+  dismiss_delete_confirm();
+  if (deleted > 0) {
+    timers_mark_updated();
+    win_deleted_show(stopwatches ? "Stopwatches Deleted" : "Timers Deleted");
+  }
+}
+
+static void dismiss_delete_confirm(void) {
+  if (window_stack_get_top_window() == s_confirm_window) {
+    window_stack_pop(true);
+  }
+}
+
+static void draw_confirm_delete_icon(GContext* ctx, GRect frame) {
+  GRect lid = GRect(frame.origin.x + 8, frame.origin.y + 9, frame.size.w - 16, 6);
+  GRect body = GRect(frame.origin.x + 11, frame.origin.y + 16, frame.size.w - 22, frame.size.h - 20);
+  GRect handle = GRect(frame.origin.x + 18, frame.origin.y + 1, frame.size.w - 36, 8);
+
+  graphics_draw_rect(ctx, lid);
+  graphics_draw_rect(ctx, body);
+  graphics_draw_rect(ctx, handle);
+  graphics_draw_line(ctx, GPoint(body.origin.x + 8, body.origin.y + 5),
+                          GPoint(body.origin.x + 8, body.origin.y + body.size.h - 5));
+  graphics_draw_line(ctx, GPoint(body.origin.x + body.size.w - 8, body.origin.y + 5),
+                          GPoint(body.origin.x + body.size.w - 8, body.origin.y + body.size.h - 5));
 }
 
 static uint8_t reset_all_matching(bool stopwatches) {
