@@ -30,8 +30,8 @@ src/windows/win-timer.c
 */
 
 #include <pebble.h>
-#include <pebble-assist.h>
-#include <bitmap-loader.h>
+#include "../libs/pebble-assist/pebble-assist.h"
+#include "../libs/bitmap-loader/bitmap-loader.h"
 #include "win-timer.h"
 #include "win-timer-add.h"
 #include "win-deleted.h"

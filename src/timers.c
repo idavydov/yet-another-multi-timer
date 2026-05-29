@@ -31,7 +31,7 @@ src/timers.c
 
 #include <pebble.h>
 
-#include <linked-list.h>
+#include "libs/linked-list/linked-list.h"
 
 #include "timers.h"
 

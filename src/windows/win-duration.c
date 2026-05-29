@@ -31,8 +31,8 @@ src/windows/win-duration.c
 
 #include <pebble.h>
 
-#include <pebble-assist.h>
-#include <selection_layer.h>
+#include "../libs/pebble-assist/pebble-assist.h"
+#include "../libs/selection-layer/selection_layer.h"
 
 #include "win-duration.h"
 

@@ -35,7 +35,7 @@ src/bitmap-loader.c
 */
 
 #include <pebble.h>
-#include <linked-list.h>
+#include "../linked-list/linked-list.h"
 #include "bitmap-loader.h"
 
 typedef struct {

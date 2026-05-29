@@ -31,7 +31,7 @@ src/windows/win-main.c
 
 #include <pebble.h>
 
-#include <pebble-assist.h>
+#include "../libs/pebble-assist/pebble-assist.h"
 
 #include "win-timer-add.h"
 #include "win-timer.h"

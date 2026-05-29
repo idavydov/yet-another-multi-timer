@@ -30,7 +30,7 @@ src/main.c
 */
 
 #include <pebble.h>
-#include <bitmap-loader.h>
+#include "libs/bitmap-loader/bitmap-loader.h"
 #include "windows/win-main.h"
 #include "timers.h"
 #include "settings.h"

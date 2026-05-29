@@ -31,8 +31,8 @@ src/windows/win-vibration.c
 
 #include <pebble.h>
 
-#include <pebble-assist.h>
-#include <bitmap-loader.h>
+#include "../libs/pebble-assist/pebble-assist.h"
+#include "../libs/bitmap-loader/bitmap-loader.h"
 
 #include "win-vibration.h"
 

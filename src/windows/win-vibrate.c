@@ -32,8 +32,8 @@ src/windows/win-vibrate.c
 #include <pebble.h>
 
 #include "win-vibrate.h"
-#include <bitmap-loader.h>
-#include <pebble-assist.h>
+#include "../libs/bitmap-loader/bitmap-loader.h"
+#include "../libs/pebble-assist/pebble-assist.h"
 #include "../common.h"
 
 void click_config_provider(Window* window);
